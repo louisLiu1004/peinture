@@ -6,6 +6,7 @@ import { getTokenStats } from '../services/hfService';
 import { getGiteeTokenStats } from '../services/giteeService';
 import { getMsTokenStats } from '../services/msService';
 import { transformModelList } from '../services/customService';
+import { hasEnvOpenRouterToken } from '../services/openrouterService';
 import { ProviderOption, S3Config, WebDAVConfig, StorageType, ModelOption, CustomProvider, RemoteModelList, ServiceMode } from '../types';
 import { 
     getSystemPromptContent,
@@ -1036,12 +1037,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                     'bg-cyan-500',
                                                     (
                                                         <div className="space-y-4">
+                                                            {/* 环境变量配置状态提示 */}
+                                                            {hasEnvOpenRouterToken() && (
+                                                                <div className="p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-xl flex items-start gap-3">
+                                                                    <Check className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+                                                                    <div>
+                                                                        <div className="text-xs font-medium text-cyan-400">{t.openrouterEnvConfigured}</div>
+                                                                        <div className="text-xs text-white/40 mt-1">{t.openrouterEnvConfiguredDesc}</div>
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                             <div className="relative group">
                                                                 <input
                                                                     type={showOpenrouterToken ? "text" : "password"}
                                                                     value={openrouterToken}
                                                                     onChange={handleOpenrouterTokenChange}
-                                                                    placeholder="sk-or-..."
+                                                                    placeholder={hasEnvOpenRouterToken() ? t.seedOptional : "sk-or-..."}
                                                                     className="w-full pl-4 pr-10 py-2.5 bg-[#1A1625] border border-white/10 rounded-xl text-white placeholder:text-white/20 focus:outline-none focus:border-purple-500/50 transition-all font-mono text-sm"
                                                                 />
                                                                 <button
@@ -1053,7 +1064,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                                 </button>
                                                             </div>
                                                             <p className="text-xs text-white/40 leading-relaxed">
-                                                                {t.openrouterTokenHelp || "Required. Get"} <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 hover:underline transition-colors">{t.openrouterTokenLink || "API Key"}</a> {t.openrouterTokenHelpEnd || "from dashboard."}
+                                                                {hasEnvOpenRouterToken() ? (t.seedOptional + ". ") : (t.openrouterTokenHelp || "Required. ")} 
+                                                                {t.openrouterTokenHelp && !hasEnvOpenRouterToken() ? t.openrouterTokenHelp + " " : "Get "}
+                                                                <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 hover:underline transition-colors">{t.openrouterTokenLink || "API Key"}</a> {t.openrouterTokenHelpEnd || "from dashboard."}
                                                             </p>
                                                         </div>
                                                     )

@@ -153,7 +153,13 @@ export const translations = {
     provider_modelscope: "Model Scope",
     provider_openrouter: "OpenRouter",
     
-    // OpenRouter Errors
+    // OpenRouter
+    openrouterToken: "Access Token",
+    openrouterTokenHelp: "Required. Get",
+    openrouterTokenLink: "API Key",
+    openrouterTokenHelpEnd: "from dashboard.",
+    openrouterEnvConfigured: "Configured via Environment",
+    openrouterEnvConfiguredDesc: "API Key has been pre-configured via environment variables. Enter your own key below to override.",
     error_openrouter_token_missing: "OpenRouter Token is required. Please set it in Settings.",
     error_openrouter_unauthorized: "OpenRouter token is invalid or unauthorized.",
     
@@ -475,6 +481,8 @@ export const translations = {
     openrouterTokenHelp: "必需。获取",
     openrouterTokenLink: "API Key",
     openrouterTokenHelpEnd: "从控制台。",
+    openrouterEnvConfigured: "已通过环境变量配置",
+    openrouterEnvConfiguredDesc: "系统已通过环境变量预配置 API Key。如需使用自己的 Key，请在下方输入以覆盖。",
     error_openrouter_token_missing: "需要配置 OpenRouter 令牌。请在设置中进行配置。",
     error_openrouter_unauthorized: "OpenRouter 令牌无效或未授权。",
 

@@ -1,14 +1,34 @@
 import { GeneratedImage, AspectRatioOption, ImageSizeOption } from "../types";
 import { generateUUID } from "./utils";
 
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+// 从环境变量读取默认值，如果未配置则使用默认 URL
+const ENV_OPENROUTER_API_URL = process.env.OPENROUTER_API_URL || '';
+const ENV_OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
+const DEFAULT_OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+
+// 获取实际使用的 API URL
+export const getOpenRouterApiUrl = (): string => {
+  return ENV_OPENROUTER_API_URL || DEFAULT_OPENROUTER_API_URL;
+};
 
 // Token Management
 const TOKEN_STORAGE_KEY = 'openrouterToken';
 
+// 检查是否有环境变量配置的 Token（用于 UI 显示状态）
+export const hasEnvOpenRouterToken = (): boolean => {
+  return !!ENV_OPENROUTER_API_KEY;
+};
+
+// 检查是否有环境变量配置的 API URL（用于 UI 显示状态）
+export const hasEnvOpenRouterApiUrl = (): boolean => {
+  return !!ENV_OPENROUTER_API_URL;
+};
+
 export const getOpenRouterToken = (): string => {
-  if (typeof localStorage === 'undefined') return '';
-  return localStorage.getItem(TOKEN_STORAGE_KEY) || '';
+  if (typeof localStorage === 'undefined') return ENV_OPENROUTER_API_KEY;
+  // 优先使用用户在前端填写的 Token，其次使用环境变量配置的 Token
+  const userToken = localStorage.getItem(TOKEN_STORAGE_KEY) || '';
+  return userToken || ENV_OPENROUTER_API_KEY;
 };
 
 export const saveOpenRouterToken = (token: string) => {
@@ -32,7 +52,7 @@ export const generateOpenRouterImage = async (
   }
 
   try {
-    const response = await fetch(OPENROUTER_API_URL, {
+    const response = await fetch(getOpenRouterApiUrl(), {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

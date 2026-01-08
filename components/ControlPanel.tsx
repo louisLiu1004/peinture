@@ -306,7 +306,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                             {activeConfig.imageSize && (
                                 <div className="group">
                                     <div className="flex items-center justify-between pb-2">
-                                        <p className="text-white/80 text-sm font-medium">{t.imageSize || 'Resolution'}</p>
+                                        <p className="text-white/80 text-sm font-medium">{t.imageSize || t.resolution}</p>
                                         <span className="text-white/50 text-xs bg-white/5 px-2 py-0.5 rounded font-mono">{imageSize}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
