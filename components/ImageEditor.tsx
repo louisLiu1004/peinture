@@ -33,6 +33,7 @@ import { editImageQwen } from '../services/hfService';
 import { editImageGitee, optimizePromptGitee } from '../services/giteeService';
 import { editImageMS, optimizePromptMS } from '../services/msService';
 import { editImageCustom, optimizePromptCustom } from '../services/customService';
+import { editImageOpenRouter } from '../services/openrouterService';
 import { optimizeEditPrompt, getEditModelConfig, getCustomProviders, fetchBlob, downloadImage, getTextModelConfig } from '../services/utils';
 import { isStorageConfigured, listCloudFiles, fetchCloudBlob, getStorageType } from '../services/storageService';
 import { ProviderOption, GeneratedImage, CloudFile } from '../types';
@@ -958,6 +959,9 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
             } else if (activeProvider === 'huggingface') {
                 // Default to HF
                 result = await editImageQwen(imageBlobs, finalPrompt, width, height, 4, 1, controller.signal);
+            } else if (activeProvider === 'openrouter') {
+                // OpenRouter (Gemini models)
+                result = await editImageOpenRouter(config.model, imageBlobs, finalPrompt, controller.signal);
             } else {
                 // Custom Provider
                 const customProviders = getCustomProviders();

@@ -383,6 +383,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                     groups.push({ label: t.provider_modelscope, options: msOptions });
                 }
             }
+            
+            // OpenRouter - Show if token is configured (either from localStorage or env)
+            if (openrouterToken || localStorage.getItem('openrouterToken') || hasEnvOpenRouterToken()) {
+                const openrouterOptions = baseList.filter(m => m.provider === 'openrouter').map(m => ({ value: m.value, label: cleanLabel(m.label) }));
+                if (openrouterOptions.length > 0) {
+                    groups.push({ label: t.provider_openrouter, options: openrouterOptions });
+                }
+            }
         }
 
         // 2. Custom Providers

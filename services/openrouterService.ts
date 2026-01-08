@@ -66,6 +66,41 @@ export const saveOpenRouterToken = (token: string) => {
 };
 
 // Generate Image via OpenRouter
+// Helper function to extract image URL from OpenRouter response
+const extractImageFromResponse = (data: any): string => {
+  const messageContent = data.choices?.[0]?.message?.content;
+  
+  let imageUrl = '';
+  
+  // Check if content is array (multimodal response)
+  if (Array.isArray(messageContent)) {
+    const imageBlock = messageContent.find((block: any) => 
+      block.type === 'image_url' || block.type === 'image'
+    );
+    if (imageBlock) {
+      imageUrl = imageBlock.image_url?.url || imageBlock.url || '';
+    }
+  } else if (data.choices?.[0]?.message?.images) {
+    // Alternative format: images array
+    const images = data.choices[0].message.images;
+    if (images && images.length > 0) {
+      imageUrl = images[0].image_url?.url || images[0].url || images[0];
+    }
+  }
+  
+  return imageUrl;
+};
+
+// Helper function to convert Blob to base64 data URL
+const blobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
 export const generateOpenRouterImage = async (
   model: string,
   prompt: string,
@@ -119,27 +154,8 @@ export const generateOpenRouterImage = async (
 
     const data = await response.json();
     
-    // Extract image from response
-    // Response format: data.choices[0].message.content contains image data
-    const messageContent = data.choices?.[0]?.message?.content;
-    
-    let imageUrl = '';
-    
-    // Check if content is array (multimodal response)
-    if (Array.isArray(messageContent)) {
-      const imageBlock = messageContent.find((block: any) => 
-        block.type === 'image_url' || block.type === 'image'
-      );
-      if (imageBlock) {
-        imageUrl = imageBlock.image_url?.url || imageBlock.url || '';
-      }
-    } else if (data.choices?.[0]?.message?.images) {
-      // Alternative format: images array
-      const images = data.choices[0].message.images;
-      if (images && images.length > 0) {
-        imageUrl = images[0].image_url?.url || images[0].url || images[0];
-      }
-    }
+    // Extract image from response using helper function
+    const imageUrl = extractImageFromResponse(data);
     
     if (!imageUrl) {
       throw new Error("error_invalid_response");
@@ -157,6 +173,104 @@ export const generateOpenRouterImage = async (
     };
   } catch (error: any) {
     console.error("OpenRouter Generation Error:", error);
+    throw error;
+  }
+};
+
+// Edit Image via OpenRouter (supports multimodal models like Gemini)
+export const editImageOpenRouter = async (
+  model: string,
+  imageBlobs: Blob[],
+  prompt: string,
+  signal?: AbortSignal
+): Promise<GeneratedImage> => {
+  const token = getOpenRouterToken();
+  
+  if (!token) {
+    throw new Error("error_openrouter_token_missing");
+  }
+
+  try {
+    // Convert all image blobs to base64
+    const imageBase64List = await Promise.all(
+      imageBlobs.map(blob => blobToBase64(blob))
+    );
+    
+    // Build multimodal content array
+    // Format: array of content blocks with text and images
+    const contentBlocks: any[] = [];
+    
+    // Add images first
+    imageBase64List.forEach((base64, index) => {
+      contentBlocks.push({
+        type: 'image_url',
+        image_url: {
+          url: base64
+        }
+      });
+    });
+    
+    // Add text prompt
+    contentBlocks.push({
+      type: 'text',
+      text: prompt
+    });
+
+    const response = await fetch(getOpenRouterApiUrl(), {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': window.location.origin,
+        'X-Title': 'Peinture AI'
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: 'user',
+            content: contentBlocks
+          }
+        ],
+        // Request image output
+        modalities: ['image', 'text']
+      }),
+      signal
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("error_openrouter_unauthorized");
+      }
+      if (response.status === 429) {
+        throw new Error("error_quota_exhausted");
+      }
+      throw new Error("error_api_connection");
+    }
+
+    const data = await response.json();
+    
+    // Extract image from response using helper function
+    const imageUrl = extractImageFromResponse(data);
+    
+    if (!imageUrl) {
+      throw new Error("error_invalid_response");
+    }
+
+    return {
+      id: generateUUID(),
+      url: imageUrl,
+      model,
+      prompt,
+      aspectRatio: '1:1', // Edit doesn't use aspect ratio
+      timestamp: Date.now(),
+      provider: 'openrouter'
+    };
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw error;
+    }
+    console.error("OpenRouter Edit Error:", error);
     throw error;
   }
 };

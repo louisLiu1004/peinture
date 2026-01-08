@@ -171,6 +171,8 @@ export const EDIT_MODELS: UnifiedModelOption[] = [
     { label: 'Qwen Image Edit', value: 'huggingface:qwen-image-edit', provider: 'huggingface' },
     { label: 'Qwen Image Edit', value: 'gitee:qwen-image-edit', provider: 'gitee' },
     { label: 'Qwen Image Edit', value: 'modelscope:qwen-image-edit', provider: 'modelscope' },
+    { label: 'Gemini 2.5 Flash Image', value: 'openrouter:google/gemini-2.5-flash-image', provider: 'openrouter' },
+    { label: 'Gemini 3 Pro Image', value: 'openrouter:google/gemini-3-pro-image-preview', provider: 'openrouter' },
 ];
 
 export const LIVE_MODELS: UnifiedModelOption[] = [
