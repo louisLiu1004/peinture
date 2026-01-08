@@ -7,6 +7,15 @@ import { generateCustomImage, generateCustomVideo, optimizePromptCustom, fetchSe
 import { generateOpenRouterImage } from './services/openrouterService';
 import { translatePrompt, generateUUID, getLiveModelConfig, getTextModelConfig, getUpscalerModelConfig, optimizeEditPrompt, getCustomProviders, getVideoSettings, getServiceMode, saveServiceMode, addCustomProvider, fetchBlob, downloadImage } from './services/utils';
 import { uploadToCloud, isStorageConfigured } from './services/storageService';
+import { 
+    initDB, 
+    saveImageToDB, 
+    getAllImagesFromDB, 
+    deleteImageFromDB, 
+    updateImageInDB, 
+    migrateFromLocalStorage,
+    isIndexedDBAvailable 
+} from './services/indexedDBService';
 import { GeneratedImage, AspectRatioOption, ModelOption, ProviderOption, CloudImage, CustomProvider, ServiceMode } from './types';
 import { HistoryGallery } from './components/HistoryGallery';
 import { SettingsModal } from './components/SettingsModal';
@@ -134,23 +143,9 @@ export default function App() {
   const [accessPassword, setAccessPassword] = useState('');
   const [passwordError, setPasswordError] = useState(false);
 
-  // Initialize history from localStorage with expiration check (delete older than 1 day)
-  const [history, setHistory] = useState<GeneratedImage[]>(() => {
-    try {
-      const saved = localStorage.getItem('ai_image_gen_history');
-      if (!saved) return [];
-      
-      const parsedHistory: GeneratedImage[] = JSON.parse(saved);
-      const now = Date.now();
-      const oneDayInMs = 24 * 60 * 60 * 1000;
-      
-      // Filter out images older than 1 day
-      return parsedHistory.filter(img => (now - img.timestamp) < oneDayInMs);
-    } catch (e) {
-      console.error("Failed to load history", e);
-      return [];
-    }
-  });
+  // Initialize history state (will be loaded from IndexedDB)
+  const [history, setHistory] = useState<GeneratedImage[]>([]);
+  const [isHistoryLoaded, setIsHistoryLoaded] = useState(false);
 
   // Cloud History State
   const [cloudHistory, setCloudHistory] = useState<CloudImage[]>(() => {
@@ -167,6 +162,46 @@ export default function App() {
   useEffect(() => {
       localStorage.setItem('ai_cloud_history', JSON.stringify(cloudHistory));
   }, [cloudHistory]);
+
+  // Load history from IndexedDB on mount
+  useEffect(() => {
+      const loadHistory = async () => {
+          if (!isIndexedDBAvailable()) {
+              console.warn('IndexedDB not available, falling back to localStorage');
+              try {
+                  const saved = localStorage.getItem('ai_image_gen_history');
+                  if (saved) {
+                      const parsed = JSON.parse(saved);
+                      const now = Date.now();
+                      const oneDayInMs = 24 * 60 * 60 * 1000;
+                      setHistory(parsed.filter((img: GeneratedImage) => (now - img.timestamp) < oneDayInMs));
+                  }
+              } catch (e) {
+                  console.error('Failed to load from localStorage', e);
+              }
+              setIsHistoryLoaded(true);
+              return;
+          }
+
+          try {
+              // Initialize DB
+              await initDB();
+              
+              // Migrate from localStorage if needed
+              await migrateFromLocalStorage();
+              
+              // Load all images
+              const images = await getAllImagesFromDB();
+              setHistory(images);
+          } catch (e) {
+              console.error('Failed to load history from IndexedDB', e);
+          } finally {
+              setIsHistoryLoaded(true);
+          }
+      };
+
+      loadHistory();
+  }, []);
 
   const [error, setError] = useState<string | null>(null);
   
@@ -440,10 +475,8 @@ export default function App() {
     localStorage.setItem('app_language', lang);
   }, [lang]);
 
-  // Image History Persistence
-  useEffect(() => {
-    localStorage.setItem('ai_image_gen_history', JSON.stringify(history));
-  }, [history]);
+  // Note: Image History is now persisted to IndexedDB on individual operations
+  // No longer using localStorage for bulk history storage
 
   // Update steps and guidance scale when model/provider changes
   useEffect(() => {
@@ -586,6 +619,11 @@ export default function App() {
       
       setCurrentImage(newImage);
       setHistory(prev => [newImage, ...prev]);
+      
+      // Save to IndexedDB
+      if (isIndexedDBAvailable()) {
+          saveImageToDB(newImage).catch(e => console.error('Failed to save image to IndexedDB', e));
+      }
     } catch (err: any) {
       const errorMessage = (t as any)[err.message] || err.message || t.generationFailed;
       setError(errorMessage);
@@ -746,6 +784,12 @@ export default function App() {
 
   const handleDelete = () => {
     if (!currentImage) return;
+    
+    // Delete from IndexedDB
+    if (isIndexedDBAvailable()) {
+        deleteImageFromDB(currentImage.id).catch(e => console.error('Failed to delete from IndexedDB', e));
+    }
+    
     const newHistory = history.filter(img => img.id !== currentImage.id);
     setHistory(newHistory);
     
@@ -776,6 +820,12 @@ export default function App() {
     setHistory(prev => prev.map(img => 
       img.id === currentImage.id ? updatedImage : img
     ));
+    
+    // Update in IndexedDB
+    if (isIndexedDBAvailable()) {
+        updateImageInDB(currentImage.id, { isBlurred: newStatus })
+            .catch(e => console.error('Failed to update in IndexedDB', e));
+    }
   };
 
   const handleCopyPrompt = async () => {
