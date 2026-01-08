@@ -32,6 +32,8 @@ interface ControlPanelProps {
     setSeed: (val: string) => void;
     imageSize: ImageSizeOption;
     setImageSize: (val: ImageSizeOption) => void;
+    batchCount: number;
+    setBatchCount: (val: number) => void;
     t: any;
     aspectRatioOptions: { value: string; label: string }[];
 }
@@ -51,6 +53,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     setSeed,
     imageSize,
     setImageSize,
+    batchCount,
+    setBatchCount,
     t,
     aspectRatioOptions
 }) => {
@@ -327,6 +331,45 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                                     </div>
                                 </div>
                             )}
+
+                            {/* Batch Count */}
+                            <div className="group">
+                                <div className="flex items-center justify-between pb-2">
+                                    <p className="text-white/80 text-sm font-medium">{t.batchCount}</p>
+                                    <span className="text-white/40 text-xs">{t.batchCountDesc}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="flex flex-1 items-center rounded-lg border border-white/10 bg-white/5 focus-within:ring-2 focus-within:ring-purple-500/50 focus-within:border-purple-500 transition-all h-10 overflow-hidden">
+                                        <button
+                                            onClick={() => setBatchCount(Math.max(1, batchCount - 1))}
+                                            disabled={batchCount <= 1}
+                                            className="h-full px-3 text-white/40 hover:text-white hover:bg-white/5 transition-colors border-r border-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                                        >
+                                            <Minus className="w-3.5 h-3.5" />
+                                        </button>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={4}
+                                            value={batchCount}
+                                            onChange={(e) => {
+                                                const val = parseInt(e.target.value, 10);
+                                                if (!isNaN(val) && val >= 1 && val <= 4) {
+                                                    setBatchCount(val);
+                                                }
+                                            }}
+                                            className="form-input flex-1 h-full bg-transparent border-none text-white/90 focus:ring-0 px-2 text-sm font-mono text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                        />
+                                        <button
+                                            onClick={() => setBatchCount(Math.min(4, batchCount + 1))}
+                                            disabled={batchCount >= 4}
+                                            className="h-full px-3 text-white/40 hover:text-white hover:bg-white/5 transition-colors border-l border-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                                        >
+                                            <Plus className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
 
                             {/* Seed */}
                             <div className="group">

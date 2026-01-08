@@ -118,6 +118,7 @@ export default function App() {
   const [steps, setSteps] = useState<number>(9);
   const [guidanceScale, setGuidanceScale] = useState<number>(3.5);
   const [imageSize, setImageSize] = useState<ImageSizeOption>('1K');
+  const [batchCount, setBatchCount] = useState<number>(1);
   const [autoTranslate, setAutoTranslate] = useState<boolean>(false);
   
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -138,6 +139,11 @@ export default function App() {
   
   // Video State
   const [isLiveMode, setIsLiveMode] = useState<boolean>(false);
+
+  // Batch Generation State
+  const [batchImages, setBatchImages] = useState<(GeneratedImage | null)[]>([]);
+  const [batchProgress, setBatchProgress] = useState<{ status: 'idle' | 'loading' | 'success' | 'error'; error?: string }[]>([]);
+  const [selectedBatchIndex, setSelectedBatchIndex] = useState<number | null>(null);
 
   // Password Modal State
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -562,6 +568,11 @@ export default function App() {
     setTempUpscaledImage(null);
     setIsLiveMode(false);
     
+    // Reset batch state
+    setBatchImages(Array(batchCount).fill(null));
+    setBatchProgress(Array(batchCount).fill({ status: 'loading' }));
+    setSelectedBatchIndex(0);
+    
     let finalPrompt = prompt;
 
     // Handle Auto Translate
@@ -580,54 +591,118 @@ export default function App() {
     const startTime = startTimer();
 
     try {
-      const seedNumber = seed.trim() === '' ? undefined : parseInt(seed, 10);
+      const baseSeed = seed.trim() === '' ? undefined : parseInt(seed, 10);
       const gsConfig = getGuidanceScaleConfig(model, provider);
       const currentGuidanceScale = gsConfig ? guidanceScale : undefined;
 
       // Always request HD if the service supports it, removing the UI toggle
       const requestHD = true;
 
-      let result;
+      // Generate groupId for batch
+      const groupId = generateUUID();
 
-      if (provider === 'gitee') {
-         result = await generateGiteeImage(model, finalPrompt, aspectRatio, seedNumber, steps, requestHD, currentGuidanceScale);
-      } else if (provider === 'modelscope') {
-         result = await generateMSImage(model, finalPrompt, aspectRatio, seedNumber, steps, requestHD, currentGuidanceScale);
-      } else if (provider === 'huggingface') {
-         result = await generateImage(model, finalPrompt, aspectRatio, seedNumber, requestHD, steps, currentGuidanceScale);
-      } else if (provider === 'openrouter') {
-         // Get model capabilities for OpenRouter
-         const modelConfig = getOpenRouterModelConfig(model);
-         const imageSizeParam = modelConfig?.capabilities.imageSize ? imageSize : undefined;
-         result = await generateOpenRouterImage(model, finalPrompt, aspectRatio, seedNumber, imageSizeParam);
-      } else {
-         // Custom Provider
-         const customProviders = getCustomProviders();
-         const activeProvider = customProviders.find(p => p.id === provider);
-         if (activeProvider) {
-             result = await generateCustomImage(activeProvider, model, finalPrompt, aspectRatio, seedNumber, steps, currentGuidanceScale, requestHD);
-         } else {
-             throw new Error("Invalid provider");
-         }
-      }
-      
-      const endTime = Date.now();
-      const duration = (endTime - startTime) / 1000;
-      
-      const newImage = { 
-          ...result, 
-          duration, 
-          provider, 
-          guidanceScale: currentGuidanceScale 
+      // Create generation function
+      const generateSingle = async (index: number) => {
+        // Each image in batch uses different seed (base + index) or random if no seed
+        const seedNumber = baseSeed !== undefined ? baseSeed + index : undefined;
+        
+        let result;
+
+        if (provider === 'gitee') {
+           result = await generateGiteeImage(model, finalPrompt, aspectRatio, seedNumber, steps, requestHD, currentGuidanceScale);
+        } else if (provider === 'modelscope') {
+           result = await generateMSImage(model, finalPrompt, aspectRatio, seedNumber, steps, requestHD, currentGuidanceScale);
+        } else if (provider === 'huggingface') {
+           result = await generateImage(model, finalPrompt, aspectRatio, seedNumber, requestHD, steps, currentGuidanceScale);
+        } else if (provider === 'openrouter') {
+           // Get model capabilities for OpenRouter
+           const modelConfig = getOpenRouterModelConfig(model);
+           const imageSizeParam = modelConfig?.capabilities.imageSize ? imageSize : undefined;
+           result = await generateOpenRouterImage(model, finalPrompt, aspectRatio, seedNumber, imageSizeParam);
+        } else {
+           // Custom Provider
+           const customProviders = getCustomProviders();
+           const activeProvider = customProviders.find(p => p.id === provider);
+           if (activeProvider) {
+               result = await generateCustomImage(activeProvider, model, finalPrompt, aspectRatio, seedNumber, steps, currentGuidanceScale, requestHD);
+           } else {
+               throw new Error("Invalid provider");
+           }
+        }
+        
+        return result;
       };
+
+      // Execute batch generation in parallel
+      const batchPromises = Array.from({ length: batchCount }, (_, index) => 
+        generateSingle(index)
+          .then(result => {
+            const endTime = Date.now();
+            const duration = (endTime - startTime) / 1000;
+            
+            const newImage: GeneratedImage = { 
+                ...result, 
+                duration, 
+                provider, 
+                guidanceScale: currentGuidanceScale,
+                groupId,
+                groupIndex: index
+            };
+            
+            // Update batch state for this index
+            setBatchImages(prev => {
+              const updated = [...prev];
+              updated[index] = newImage;
+              return updated;
+            });
+            setBatchProgress(prev => {
+              const updated = [...prev];
+              updated[index] = { status: 'success' };
+              return updated;
+            });
+            
+            return newImage;
+          })
+          .catch(err => {
+            // Update progress for failed item
+            setBatchProgress(prev => {
+              const updated = [...prev];
+              updated[index] = { status: 'error', error: err.message };
+              return updated;
+            });
+            return null;
+          })
+      );
+
+      const results = await Promise.all(batchPromises);
       
-      setCurrentImage(newImage);
-      setHistory(prev => [newImage, ...prev]);
+      // Filter successful results
+      const successfulImages = results.filter((img): img is GeneratedImage => img !== null);
       
-      // Save to IndexedDB
-      if (isIndexedDBAvailable()) {
-          saveImageToDB(newImage).catch(e => console.error('Failed to save image to IndexedDB', e));
+      if (successfulImages.length > 0) {
+        // Add groupImages reference to each image
+        const imagesWithGroup = successfulImages.map(img => ({
+          ...img,
+          groupImages: successfulImages
+        }));
+        
+        // Set first successful image as current
+        setCurrentImage(imagesWithGroup[0]);
+        
+        // Add all successful images to history (newest first)
+        setHistory(prev => [...imagesWithGroup.reverse(), ...prev]);
+        
+        // Save to IndexedDB
+        if (isIndexedDBAvailable()) {
+          imagesWithGroup.forEach(img => {
+            saveImageToDB(img).catch(e => console.error('Failed to save image to IndexedDB', e));
+          });
+        }
+      } else {
+        // All failed
+        setError(t.generationFailed);
       }
+      
     } catch (err: any) {
       const errorMessage = (t as any)[err.message] || err.message || t.generationFailed;
       setError(errorMessage);
@@ -1193,6 +1268,8 @@ export default function App() {
                             setSeed={setSeed}
                             imageSize={imageSize}
                             setImageSize={setImageSize}
+                            batchCount={batchCount}
+                            setBatchCount={setBatchCount}
                             t={t}
                             aspectRatioOptions={aspectRatioOptions}
                         />
@@ -1254,6 +1331,17 @@ export default function App() {
                             t={t}
                             isLiveMode={isLiveMode}
                             onToggleLiveMode={() => setIsLiveMode(!isLiveMode)}
+                            batchCount={batchCount}
+                            batchImages={batchImages}
+                            batchProgress={batchProgress}
+                            selectedBatchIndex={selectedBatchIndex}
+                            onBatchImageSelect={(index) => {
+                                setSelectedBatchIndex(index);
+                                const selectedImage = batchImages[index];
+                                if (selectedImage) {
+                                    setCurrentImage(selectedImage);
+                                }
+                            }}
                         >
                         {/* No children passed as toolbar is moved out */}
                         </PreviewStage>

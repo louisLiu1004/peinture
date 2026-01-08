@@ -22,6 +22,10 @@ export interface GeneratedImage {
     videoError?: string;
     videoProvider?: ProviderOption;
     videoNextPollTime?: number; // Timestamp for next poll attempt
+    // Batch Generation Properties
+    groupId?: string; // ID to group batch-generated images
+    groupImages?: GeneratedImage[]; // Array of images in a batch group
+    groupIndex?: number; // Index of this image within the batch (0-based)
 }
 
 export interface CloudImage {
