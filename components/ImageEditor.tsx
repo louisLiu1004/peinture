@@ -160,7 +160,9 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
     // Cleanup ObjectURLs on unmount
     useEffect(() => {
         return () => {
-            Object.values(galleryLocalUrls).forEach(url => URL.revokeObjectURL(url));
+            Object.keys(galleryLocalUrls).forEach(key => {
+                URL.revokeObjectURL(galleryLocalUrls[key]);
+            });
             if (activeObjectUrlRef.current) {
                 URL.revokeObjectURL(activeObjectUrlRef.current);
             }
