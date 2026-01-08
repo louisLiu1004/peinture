@@ -98,6 +98,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
     const [msStats, setMsStats] = useState({ total: 0, active: 0, exhausted: 0 });
     const [showMsToken, setShowMsToken] = useState(false);
 
+    // OpenRouter Token State
+    const [openrouterToken, setOpenrouterToken] = useState('');
+    const [showOpenrouterToken, setShowOpenrouterToken] = useState(false);
+
     // Custom Providers State
     const [customProviders, setCustomProviders] = useState<CustomProvider[]>([]);
     const [newProviderName, setNewProviderName] = useState('');
@@ -161,6 +165,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
             const storedMsToken = localStorage.getItem('msToken') || '';
             setMsToken(storedMsToken);
             setMsStats(getMsTokenStats(storedMsToken));
+
+            const storedOpenrouterToken = localStorage.getItem('openrouterToken') || '';
+            setOpenrouterToken(storedOpenrouterToken);
 
             // Load Custom Providers
             setCustomProviders(getCustomProviders());
@@ -418,6 +425,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
         setMsStats(getMsTokenStats(newVal));
     };
 
+    // OpenRouter Handlers
+    const handleOpenrouterTokenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setOpenrouterToken(e.target.value);
+    };
+
     // Custom Provider Handlers
     const handleFetchModels = async () => {
         if (!newProviderUrl) return;
@@ -544,6 +556,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
         localStorage.setItem('huggingFaceToken', token.trim());
         localStorage.setItem('giteeToken', giteeToken.trim());
         localStorage.setItem('msToken', msToken.trim());
+        localStorage.setItem('openrouterToken', openrouterToken.trim());
         
         saveSystemPromptContent(systemPrompt);
         saveTranslationPromptContent(translationPrompt);
@@ -1014,6 +1027,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                         t.msTokenLink,
                                                         t.msTokenHelpEnd,
                                                         "https://modelscope.cn/my/myaccesstoken"
+                                                    )
+                                                )}
+
+                                                {renderProviderPanel(
+                                                    'openrouter', 
+                                                    t.provider_openrouter, 
+                                                    'bg-cyan-500',
+                                                    (
+                                                        <div className="space-y-4">
+                                                            <div className="relative group">
+                                                                <input
+                                                                    type={showOpenrouterToken ? "text" : "password"}
+                                                                    value={openrouterToken}
+                                                                    onChange={handleOpenrouterTokenChange}
+                                                                    placeholder="sk-or-..."
+                                                                    className="w-full pl-4 pr-10 py-2.5 bg-[#1A1625] border border-white/10 rounded-xl text-white placeholder:text-white/20 focus:outline-none focus:border-purple-500/50 transition-all font-mono text-sm"
+                                                                />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setShowOpenrouterToken(!showOpenrouterToken)}
+                                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/5"
+                                                                >
+                                                                    {showOpenrouterToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                                </button>
+                                                            </div>
+                                                            <p className="text-xs text-white/40 leading-relaxed">
+                                                                {t.openrouterTokenHelp || "Required. Get"} <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 hover:underline transition-colors">{t.openrouterTokenLink || "API Key"}</a> {t.openrouterTokenHelpEnd || "from dashboard."}
+                                                            </p>
+                                                        </div>
                                                     )
                                                 )}
                                             </>

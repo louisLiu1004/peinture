@@ -75,7 +75,7 @@ export type ModelOption =
     | "flux-1"
     | string; // Allow custom model strings
 
-export type ProviderOption = "huggingface" | "gitee" | "modelscope" | string;
+export type ProviderOption = "huggingface" | "gitee" | "modelscope" | "openrouter" | string;
 
 export interface GenerationParams {
     model: ModelOption;

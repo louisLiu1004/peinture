@@ -8,6 +8,7 @@ import {
     HF_MODEL_OPTIONS, 
     GITEE_MODEL_OPTIONS, 
     MS_MODEL_OPTIONS, 
+    OPENROUTER_MODEL_OPTIONS,
     Z_IMAGE_MODELS, 
     FLUX_MODELS, 
     getModelConfig, 
@@ -83,6 +84,15 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     groups.push({
                         label: t.provider_modelscope,
                         options: MS_MODEL_OPTIONS.map(m => ({ label: m.label, value: `modelscope:${m.value}` }))
+                    });
+                }
+
+                // OpenRouter (Only if token exists)
+                const hasOpenRouterToken = localStorage.getItem('openrouterToken');
+                if (hasOpenRouterToken) {
+                    groups.push({
+                        label: t.provider_openrouter || 'OpenRouter',
+                        options: OPENROUTER_MODEL_OPTIONS.map(m => ({ label: m.label, value: `openrouter:${m.value}` }))
                     });
                 }
             }

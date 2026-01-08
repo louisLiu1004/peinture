@@ -59,10 +59,19 @@ export const MS_MODEL_OPTIONS = [
   { value: 'flux-1', label: 'FLUX.1' }
 ];
 
+export const OPENROUTER_MODEL_OPTIONS = [
+  { value: 'google/gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image' },
+  { value: 'black-forest-labs/flux-pro', label: 'FLUX.1 Pro' },
+  { value: 'black-forest-labs/flux-1.1-pro', label: 'FLUX.1.1 Pro' },
+  { value: 'black-forest-labs/flux-kontext-pro', label: 'FLUX Kontext Pro' },
+  { value: 'black-forest-labs/flux-kontext-max', label: 'FLUX Kontext Max' }
+];
+
 export const PROVIDER_OPTIONS = [
     { value: 'huggingface', label: 'Hugging Face' },
     { value: 'gitee', label: 'Gitee AI' },
-    { value: 'modelscope', label: 'Model Scope' }
+    { value: 'modelscope', label: 'Model Scope' },
+    { value: 'openrouter', label: 'OpenRouter' }
 ];
 
 export const FLUX_MODELS = [

@@ -4,6 +4,7 @@ import { generateImage, upscaler, createVideoTaskHF, uploadToGradio, QWEN_IMAGE_
 import { generateGiteeImage, optimizePromptGitee, createVideoTask, getGiteeTaskStatus } from './services/giteeService';
 import { generateMSImage, optimizePromptMS } from './services/msService';
 import { generateCustomImage, generateCustomVideo, optimizePromptCustom, fetchServerModels, getCustomTaskStatus, upscaleImageCustom } from './services/customService';
+import { generateOpenRouterImage } from './services/openrouterService';
 import { translatePrompt, generateUUID, getLiveModelConfig, getTextModelConfig, getUpscalerModelConfig, optimizeEditPrompt, getCustomProviders, getVideoSettings, getServiceMode, saveServiceMode, addCustomProvider, fetchBlob, downloadImage } from './services/utils';
 import { uploadToCloud, isStorageConfigured } from './services/storageService';
 import { GeneratedImage, AspectRatioOption, ModelOption, ProviderOption, CloudImage, CustomProvider, ServiceMode } from './types';
@@ -560,6 +561,8 @@ export default function App() {
          result = await generateMSImage(model, finalPrompt, aspectRatio, seedNumber, steps, requestHD, currentGuidanceScale);
       } else if (provider === 'huggingface') {
          result = await generateImage(model, finalPrompt, aspectRatio, seedNumber, requestHD, steps, currentGuidanceScale);
+      } else if (provider === 'openrouter') {
+         result = await generateOpenRouterImage(model, finalPrompt, aspectRatio, seedNumber);
       } else {
          // Custom Provider
          const customProviders = getCustomProviders();

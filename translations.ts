@@ -150,6 +150,11 @@ export const translations = {
     provider_huggingface: "Hugging Face",
     provider_gitee: "Gitee AI",
     provider_modelscope: "Model Scope",
+    provider_openrouter: "OpenRouter",
+    
+    // OpenRouter Errors
+    error_openrouter_token_missing: "OpenRouter Token is required. Please set it in Settings.",
+    error_openrouter_unauthorized: "OpenRouter token is invalid or unauthorized.",
     
     // Custom Providers
     add_provider: "Add Provider",
@@ -461,6 +466,15 @@ export const translations = {
     provider_huggingface: "Hugging Face",
     provider_gitee: "Gitee AI",
     provider_modelscope: "Model Scope",
+    provider_openrouter: "OpenRouter",
+    
+    // OpenRouter
+    openrouterToken: "访问令牌",
+    openrouterTokenHelp: "必需。获取",
+    openrouterTokenLink: "API Key",
+    openrouterTokenHelpEnd: "从控制台。",
+    error_openrouter_token_missing: "需要配置 OpenRouter 令牌。请在设置中进行配置。",
+    error_openrouter_unauthorized: "OpenRouter 令牌无效或未授权。",
 
     // Custom Providers
     add_provider: "新增服务商",
