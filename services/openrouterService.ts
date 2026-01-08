@@ -6,25 +6,53 @@ const ENV_OPENROUTER_API_URL = process.env.OPENROUTER_API_URL || '';
 const ENV_OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 const DEFAULT_OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-// 获取实际使用的 API URL
-export const getOpenRouterApiUrl = (): string => {
-  return ENV_OPENROUTER_API_URL || DEFAULT_OPENROUTER_API_URL;
-};
-
 // Token Management
 const TOKEN_STORAGE_KEY = 'openrouterToken';
 
+// 代理模式配置
+// 当部署在 Docker 中时，通过 /api/proxy/openrouter/ 路径调用后端代理
+const PROXY_API_URL = "/api/proxy/openrouter/chat/completions";
+
+// 检测是否应该使用代理模式
+// 条件：没有配置环境变量中的 API Key（说明是生产环境，需要使用后端代理）
+const shouldUseProxy = (): boolean => {
+  // 如果用户在前端填写了 Token，则直接使用（不走代理）
+  if (typeof localStorage !== 'undefined') {
+    const userToken = localStorage.getItem(TOKEN_STORAGE_KEY) || '';
+    if (userToken) return false;
+  }
+  // 如果环境变量中有 Key（开发环境），则不使用代理
+  if (ENV_OPENROUTER_API_KEY) return false;
+  // 否则使用代理
+  return true;
+};
+
+// 获取实际使用的 API URL
+export const getOpenRouterApiUrl = (): string => {
+  if (shouldUseProxy()) {
+    return PROXY_API_URL;
+  }
+  return ENV_OPENROUTER_API_URL || DEFAULT_OPENROUTER_API_URL;
+};
+
 // 检查是否有环境变量配置的 Token（用于 UI 显示状态）
 export const hasEnvOpenRouterToken = (): boolean => {
+  // 在代理模式下，也认为"有 Token"（由后端提供）
+  if (shouldUseProxy()) return true;
   return !!ENV_OPENROUTER_API_KEY;
 };
 
 // 检查是否有环境变量配置的 API URL（用于 UI 显示状态）
 export const hasEnvOpenRouterApiUrl = (): boolean => {
+  // 在代理模式下，也认为"有配置"
+  if (shouldUseProxy()) return true;
   return !!ENV_OPENROUTER_API_URL;
 };
 
 export const getOpenRouterToken = (): string => {
+  // 在代理模式下，不需要前端提供 Token（返回占位符）
+  if (shouldUseProxy()) return 'PROXY_MODE';
+  
   if (typeof localStorage === 'undefined') return ENV_OPENROUTER_API_KEY;
   // 优先使用用户在前端填写的 Token，其次使用环境变量配置的 Token
   const userToken = localStorage.getItem(TOKEN_STORAGE_KEY) || '';

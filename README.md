@@ -78,6 +78,76 @@ A sleek, dark-themed AI image generator built with React, TypeScript, and Tailwi
 
 This project is a static Single Page Application (SPA), making it easy to deploy on any platform that supports static hosting.
 
+### Option 0: Docker (Recommended for Self-Hosting)
+
+Docker deployment includes a backend proxy server that keeps your API keys secure. Users won't be able to see the API keys in their browser.
+
+**Prerequisites:**
+- Docker and Docker Compose installed
+
+**Quick Start:**
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Amery2010/peinture.git
+   cd peinture
+   ```
+
+2. Create a `.env` file with your API keys:
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Edit `.env` and add your keys:
+   ```env
+   # OpenRouter API Configuration
+   OPENROUTER_API_URL=https://openrouter.ai/api/v1
+   OPENROUTER_API_KEY=sk-or-v1-your-key-here
+   ```
+
+3. Build and start the container:
+   ```bash
+   docker-compose up -d
+   ```
+
+4. Open your browser at `http://localhost:13000`
+
+**Configuration Options:**
+
+| Environment Variable | Description | Default |
+|---------------------|-------------|---------|
+| `OPENROUTER_API_URL` | OpenRouter API base URL | `https://openrouter.ai/api/v1` |
+| `OPENROUTER_API_KEY` | Your OpenRouter API key | (required) |
+
+**Commands:**
+
+```bash
+# Start the application
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop the application
+docker-compose down
+
+# Rebuild after code changes
+docker-compose up -d --build
+
+# Update to latest version
+git pull
+docker-compose up -d --build
+```
+
+**How it works:**
+- The frontend is built and served by Nginx
+- API requests to `/api/proxy/openrouter/*` are forwarded to the backend proxy server
+- The backend proxy injects your API key and forwards requests to OpenRouter
+- Your API key never leaves the server and is not exposed to users
+
+**Note:** If users configure their own API key in the Settings UI, their requests will bypass the proxy and go directly to OpenRouter.
+
+
 ### Option 1: Vercel (Recommended)
 
 Vercel is optimized for frontend frameworks and requires zero configuration.
