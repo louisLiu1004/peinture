@@ -165,6 +165,7 @@ export const translations = {
     openrouterEnvConfiguredDesc: "API Key has been pre-configured via environment variables. Enter your own key below to override.",
     error_openrouter_token_missing: "OpenRouter Token is required. Please set it in Settings.",
     error_openrouter_unauthorized: "OpenRouter token is invalid or unauthorized.",
+    error_openrouter_prompt_failed: "OpenRouter prompt optimization failed. Please try again.",
     
     // Custom Providers
     add_provider: "Add Provider",
@@ -491,6 +492,7 @@ export const translations = {
     openrouterEnvConfiguredDesc: "系统已通过环境变量预配置 API Key。如需使用自己的 Key，请在下方输入以覆盖。",
     error_openrouter_token_missing: "需要配置 OpenRouter 令牌。请在设置中进行配置。",
     error_openrouter_unauthorized: "OpenRouter 令牌无效或未授权。",
+    error_openrouter_prompt_failed: "OpenRouter 提示词优化失败，请重试。",
 
     // Custom Providers
     add_provider: "新增服务商",

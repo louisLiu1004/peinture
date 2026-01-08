@@ -4,7 +4,7 @@ import { generateImage, upscaler, createVideoTaskHF, uploadToGradio, QWEN_IMAGE_
 import { generateGiteeImage, optimizePromptGitee, createVideoTask, getGiteeTaskStatus } from './services/giteeService';
 import { generateMSImage, optimizePromptMS } from './services/msService';
 import { generateCustomImage, generateCustomVideo, optimizePromptCustom, fetchServerModels, getCustomTaskStatus, upscaleImageCustom } from './services/customService';
-import { generateOpenRouterImage } from './services/openrouterService';
+import { generateOpenRouterImage, optimizePromptOpenRouter } from './services/openrouterService';
 import { translatePrompt, generateUUID, getLiveModelConfig, getTextModelConfig, getUpscalerModelConfig, optimizeEditPrompt, getCustomProviders, getVideoSettings, getServiceMode, saveServiceMode, addCustomProvider, fetchBlob, downloadImage } from './services/utils';
 import { uploadToCloud, isStorageConfigured } from './services/storageService';
 import { 
@@ -824,6 +824,8 @@ export default function App() {
              // Default HF uses simple internal logic or Pollinations
              const { optimizePrompt } = await import('./services/hfService');
              optimized = await optimizePrompt(prompt);
+        } else if (config.provider === 'openrouter') {
+             optimized = await optimizePromptOpenRouter(prompt, config.model);
         } else {
              // Custom Provider
              const customProviders = getCustomProviders();

@@ -186,6 +186,7 @@ export const TEXT_MODELS: UnifiedModelOption[] = [
     { label: 'Qwen 3', value: 'gitee:qwen-3', provider: 'gitee' },
     { label: 'DeepSeek V3.2', value: 'modelscope:deepseek-3_2', provider: 'modelscope' },
     { label: 'Qwen 3', value: 'modelscope:qwen-3', provider: 'modelscope' },
+    { label: 'OpenAI 4o mini', value: 'openrouter:openai/gpt-4o-mini', provider: 'openrouter' },
 ];
 
 export const UPSCALER_MODELS: UnifiedModelOption[] = [

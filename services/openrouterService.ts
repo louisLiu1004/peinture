@@ -1,10 +1,13 @@
 import { GeneratedImage, AspectRatioOption, ImageSizeOption } from "../types";
-import { generateUUID } from "./utils";
+import { generateUUID, getSystemPromptContent, FIXED_SYSTEM_PROMPT_SUFFIX } from "./utils";
 
 // 从环境变量读取默认值，如果未配置则使用默认 URL
 const ENV_OPENROUTER_API_URL = process.env.OPENROUTER_API_URL || '';
 const ENV_OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 const DEFAULT_OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+
+// Default text model for prompt optimization (can be overridden by utils DEFAULT_OPTIMIZATION_MODELS)
+const DEFAULT_TEXT_MODEL = "openai/gpt-4o-mini";
 
 // Token Management
 const TOKEN_STORAGE_KEY = 'openrouterToken';
@@ -65,7 +68,14 @@ export const saveOpenRouterToken = (token: string) => {
   }
 };
 
-// Generate Image via OpenRouter
+// Helper to build base headers
+const buildHeaders = (token: string) => ({
+  'Authorization': `Bearer ${token}`,
+  'Content-Type': 'application/json',
+  'HTTP-Referer': typeof window !== 'undefined' ? window.location.origin : '',
+  'X-Title': 'Peinture AI'
+});
+
 // Helper function to extract image URL from OpenRouter response
 const extractImageFromResponse = (data: any): string => {
   const messageContent = data.choices?.[0]?.message?.content;
@@ -117,12 +127,7 @@ export const generateOpenRouterImage = async (
   try {
     const response = await fetch(getOpenRouterApiUrl(), {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': window.location.origin,
-        'X-Title': 'Peinture AI'
-      },
+      headers: buildHeaders(token),
       body: JSON.stringify({
         model,
         messages: [
@@ -218,12 +223,7 @@ export const editImageOpenRouter = async (
 
     const response = await fetch(getOpenRouterApiUrl(), {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': window.location.origin,
-        'X-Title': 'Peinture AI'
-      },
+      headers: buildHeaders(token),
       body: JSON.stringify({
         model,
         messages: [
@@ -271,6 +271,49 @@ export const editImageOpenRouter = async (
       throw error;
     }
     console.error("OpenRouter Edit Error:", error);
+    throw error;
+  }
+};
+
+// --- Prompt Optimization via OpenRouter ---
+export const optimizePromptOpenRouter = async (
+  originalPrompt: string,
+  modelOverride?: string
+): Promise<string> => {
+  const token = getOpenRouterToken();
+  if (!token) {
+    throw new Error("error_openrouter_token_missing");
+  }
+
+  const model = modelOverride || DEFAULT_TEXT_MODEL;
+  const systemInstruction = getSystemPromptContent() + FIXED_SYSTEM_PROMPT_SUFFIX;
+
+  try {
+    const response = await fetch(getOpenRouterApiUrl(), {
+      method: 'POST',
+      headers: buildHeaders(token),
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: systemInstruction },
+          { role: 'user', content: originalPrompt }
+        ],
+        stream: false
+      })
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) throw new Error("error_openrouter_unauthorized");
+      if (response.status === 429) throw new Error("error_quota_exhausted");
+      throw new Error("error_api_connection");
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) throw new Error("error_invalid_response");
+    return content;
+  } catch (error) {
+    console.error("OpenRouter Prompt Optimization Error:", error);
     throw error;
   }
 };

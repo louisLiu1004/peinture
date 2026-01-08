@@ -84,7 +84,8 @@ export const saveTranslationPromptContent = (content: string) => {
 export const DEFAULT_OPTIMIZATION_MODELS: Record<string, string> = {
   huggingface: 'openai-fast',
   gitee: 'deepseek-3_2',
-  modelscope: 'deepseek-3_2'
+  modelscope: 'deepseek-3_2',
+  openrouter: 'openai/gpt-4o-mini'
 };
 
 const OPTIM_MODEL_STORAGE_PREFIX = 'optim_model_';
