@@ -65,6 +65,26 @@ export interface WebDAVConfig {
 
 export type AspectRatioOption = "1:1" | "3:2" | "2:3" | "3:4" | "4:3" | "4:5" | "5:4" | "9:16" | "16:9";
 
+export type ImageSizeOption = "1K" | "2K" | "4K";
+
+// OpenRouter model capabilities configuration
+export interface OpenRouterModelCapabilities {
+    imageSize?: {
+        options: ImageSizeOption[];
+        default: ImageSizeOption;
+    };
+    aspectRatio?: {
+        options: AspectRatioOption[];
+        default: AspectRatioOption;
+    };
+}
+
+export interface OpenRouterModelConfig {
+    value: string;
+    label: string;
+    capabilities: OpenRouterModelCapabilities;
+}
+
 export type ModelOption = 
     | "z-image-turbo" 
     | "qwen-image" 

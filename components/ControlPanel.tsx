@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Select, OptionGroup } from './Select';
 import { Tooltip } from './Tooltip';
 import { Settings, ChevronUp, ChevronDown, Minus, Plus, Dices, Cpu } from 'lucide-react';
-import { ModelOption, ProviderOption, AspectRatioOption } from '../types';
+import { ModelOption, ProviderOption, AspectRatioOption, ImageSizeOption } from '../types';
 import { 
     HF_MODEL_OPTIONS, 
     GITEE_MODEL_OPTIONS, 
@@ -12,7 +12,8 @@ import {
     Z_IMAGE_MODELS, 
     FLUX_MODELS, 
     getModelConfig, 
-    getGuidanceScaleConfig 
+    getGuidanceScaleConfig,
+    getOpenRouterModelConfig
 } from '../constants';
 import { getCustomProviders, getServiceMode } from '../services/utils';
 
@@ -29,6 +30,8 @@ interface ControlPanelProps {
     setGuidanceScale: (val: number) => void;
     seed: string;
     setSeed: (val: string) => void;
+    imageSize: ImageSizeOption;
+    setImageSize: (val: ImageSizeOption) => void;
     t: any;
     aspectRatioOptions: { value: string; label: string }[];
 }
@@ -46,6 +49,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     setGuidanceScale,
     seed,
     setSeed,
+    imageSize,
+    setImageSize,
     t,
     aspectRatioOptions
 }) => {
@@ -146,16 +151,29 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                         max: customModel.guidance.range[1],
                         step: 0.1,
                         default: customModel.guidance.default
-                    } : null
+                    } : null,
+                    imageSize: null // Custom providers don't support imageSize yet
                 };
             }
+        }
+
+        // Check for OpenRouter model capabilities
+        if (provider === 'openrouter') {
+            const openRouterConfig = getOpenRouterModelConfig(model);
+            return {
+                isCustom: false,
+                steps: null, // OpenRouter doesn't use steps
+                guidance: null, // OpenRouter doesn't use guidance
+                imageSize: openRouterConfig?.capabilities.imageSize || null
+            };
         }
 
         // Fallback to standard config
         return {
             isCustom: false,
             steps: getModelConfig(provider, model),
-            guidance: getGuidanceScaleConfig(model, provider)
+            guidance: getGuidanceScaleConfig(model, provider),
+            imageSize: null
         };
     }, [provider, model]);
 
@@ -169,10 +187,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 setGuidanceScale(activeConfig.guidance.default);
             }
         }
+        // Initialize imageSize for OpenRouter models
+        if (activeConfig.imageSize) {
+            setImageSize(activeConfig.imageSize.default);
+        }
         // Standard provider defaults are handled in App.tsx effects, 
         // but custom ones need explicit handling here since App.tsx 
         // mainly relies on getModelConfig/constants.
-    }, [activeConfig, setSteps, setGuidanceScale]);
+    }, [activeConfig, setSteps, setGuidanceScale, setImageSize]);
 
     const handleRandomizeSeed = () => {
         setSeed(Math.floor(Math.random() * 2147483647).toString());
@@ -276,6 +298,32 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                                             onChange={(e) => setGuidanceScale(Number(e.target.value))}
                                             className="custom-range text-purple-500"
                                         />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Image Size (Resolution) - Only for OpenRouter models that support it */}
+                            {activeConfig.imageSize && (
+                                <div className="group">
+                                    <div className="flex items-center justify-between pb-2">
+                                        <p className="text-white/80 text-sm font-medium">{t.imageSize || 'Resolution'}</p>
+                                        <span className="text-white/50 text-xs bg-white/5 px-2 py-0.5 rounded font-mono">{imageSize}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {activeConfig.imageSize.options.map((size) => (
+                                            <button
+                                                key={size}
+                                                type="button"
+                                                onClick={() => setImageSize(size)}
+                                                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                                                    imageSize === size
+                                                        ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'
+                                                        : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+                                                }`}
+                                            >
+                                                {size}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
                             )}

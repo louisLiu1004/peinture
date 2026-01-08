@@ -1,5 +1,5 @@
 
-import { ModelOption, ProviderOption } from './types';
+import { ModelOption, ProviderOption, OpenRouterModelConfig, AspectRatioOption } from './types';
 
 // Map standardized UI IDs to Provider Specific API Strings
 export const API_MODEL_MAP: Record<ProviderOption, Record<string, string>> = {
@@ -59,13 +59,52 @@ export const MS_MODEL_OPTIONS = [
   { value: 'flux-1', label: 'FLUX.1' }
 ];
 
-export const OPENROUTER_MODEL_OPTIONS = [
-  { value: 'google/gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image' },
-  { value: 'black-forest-labs/flux-pro', label: 'FLUX.1 Pro' },
-  { value: 'black-forest-labs/flux-1.1-pro', label: 'FLUX.1.1 Pro' },
-  { value: 'black-forest-labs/flux-kontext-pro', label: 'FLUX Kontext Pro' },
-  { value: 'black-forest-labs/flux-kontext-max', label: 'FLUX Kontext Max' }
+// Gemini supported aspect ratios
+const GEMINI_ASPECT_RATIOS: AspectRatioOption[] = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9'];
+
+export const OPENROUTER_MODEL_OPTIONS: OpenRouterModelConfig[] = [
+  { 
+    value: 'google/gemini-3-pro-image-preview', 
+    label: 'Gemini 3 Pro Image',
+    capabilities: {
+      imageSize: { options: ['1K', '2K', '4K'], default: '1K' },
+      aspectRatio: { options: GEMINI_ASPECT_RATIOS, default: '1:1' }
+    }
+  },
+  { 
+    value: 'google/gemini-2.5-flash-image', 
+    label: 'Gemini 2.5 Flash Image',
+    capabilities: {
+      imageSize: { options: ['1K', '2K', '4K'], default: '1K' },
+      aspectRatio: { options: GEMINI_ASPECT_RATIOS, default: '1:1' }
+    }
+  },
+  { 
+    value: 'black-forest-labs/flux-pro', 
+    label: 'FLUX.1 Pro',
+    capabilities: {}  // FLUX models don't support imageSize via OpenRouter
+  },
+  { 
+    value: 'black-forest-labs/flux-1.1-pro', 
+    label: 'FLUX.1.1 Pro',
+    capabilities: {}
+  },
+  { 
+    value: 'black-forest-labs/flux-kontext-pro', 
+    label: 'FLUX Kontext Pro',
+    capabilities: {}
+  },
+  { 
+    value: 'black-forest-labs/flux-kontext-max', 
+    label: 'FLUX Kontext Max',
+    capabilities: {}
+  }
 ];
+
+// Helper function to get OpenRouter model config by model ID
+export const getOpenRouterModelConfig = (modelId: string): OpenRouterModelConfig | undefined => {
+  return OPENROUTER_MODEL_OPTIONS.find(m => m.value === modelId);
+};
 
 export const PROVIDER_OPTIONS = [
     { value: 'huggingface', label: 'Hugging Face' },

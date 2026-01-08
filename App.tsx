@@ -16,7 +16,7 @@ import {
     migrateFromLocalStorage,
     isIndexedDBAvailable 
 } from './services/indexedDBService';
-import { GeneratedImage, AspectRatioOption, ModelOption, ProviderOption, CloudImage, CustomProvider, ServiceMode } from './types';
+import { GeneratedImage, AspectRatioOption, ModelOption, ProviderOption, CloudImage, CustomProvider, ServiceMode, ImageSizeOption } from './types';
 import { HistoryGallery } from './components/HistoryGallery';
 import { SettingsModal } from './components/SettingsModal';
 import { FAQModal } from './components/FAQModal';
@@ -30,7 +30,7 @@ import {
   RotateCcw,
   Lock,
 } from 'lucide-react';
-import { getModelConfig, getGuidanceScaleConfig, FLUX_MODELS, HF_MODEL_OPTIONS, GITEE_MODEL_OPTIONS, MS_MODEL_OPTIONS, LIVE_MODELS } from './constants';
+import { getModelConfig, getGuidanceScaleConfig, FLUX_MODELS, HF_MODEL_OPTIONS, GITEE_MODEL_OPTIONS, MS_MODEL_OPTIONS, LIVE_MODELS, getOpenRouterModelConfig } from './constants';
 import { PromptInput } from './components/PromptInput';
 import { ControlPanel } from './components/ControlPanel';
 import { PreviewStage } from './components/PreviewStage';
@@ -117,6 +117,7 @@ export default function App() {
   const [seed, setSeed] = useState<string>(''); 
   const [steps, setSteps] = useState<number>(9);
   const [guidanceScale, setGuidanceScale] = useState<number>(3.5);
+  const [imageSize, setImageSize] = useState<ImageSizeOption>('1K');
   const [autoTranslate, setAutoTranslate] = useState<boolean>(false);
   
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -595,7 +596,10 @@ export default function App() {
       } else if (provider === 'huggingface') {
          result = await generateImage(model, finalPrompt, aspectRatio, seedNumber, requestHD, steps, currentGuidanceScale);
       } else if (provider === 'openrouter') {
-         result = await generateOpenRouterImage(model, finalPrompt, aspectRatio, seedNumber);
+         // Get model capabilities for OpenRouter
+         const modelConfig = getOpenRouterModelConfig(model);
+         const imageSizeParam = modelConfig?.capabilities.imageSize ? imageSize : undefined;
+         result = await generateOpenRouterImage(model, finalPrompt, aspectRatio, seedNumber, imageSizeParam);
       } else {
          // Custom Provider
          const customProviders = getCustomProviders();
@@ -1187,6 +1191,8 @@ export default function App() {
                             setGuidanceScale={setGuidanceScale}
                             seed={seed}
                             setSeed={setSeed}
+                            imageSize={imageSize}
+                            setImageSize={setImageSize}
                             t={t}
                             aspectRatioOptions={aspectRatioOptions}
                         />

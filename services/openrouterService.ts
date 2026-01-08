@@ -1,4 +1,4 @@
-import { GeneratedImage, AspectRatioOption } from "../types";
+import { GeneratedImage, AspectRatioOption, ImageSizeOption } from "../types";
 import { generateUUID } from "./utils";
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -22,7 +22,8 @@ export const generateOpenRouterImage = async (
   model: string,
   prompt: string,
   aspectRatio: AspectRatioOption,
-  seed?: number
+  seed?: number,
+  imageSize?: ImageSizeOption
 ): Promise<GeneratedImage> => {
   const token = getOpenRouterToken();
   
@@ -47,7 +48,14 @@ export const generateOpenRouterImage = async (
             content: prompt
           }
         ],
-        modalities: ['image', 'text']
+        // OpenRouter image generation requires modalities parameter
+        modalities: ['image', 'text'],
+        // Image configuration for Gemini models (aspect_ratio and image_size)
+        // Docs: https://openrouter.ai/docs/guides/overview/multimodal/image-generation
+        image_config: {
+          aspect_ratio: aspectRatio,
+          ...(imageSize && { image_size: imageSize })
+        }
       })
     });
 
