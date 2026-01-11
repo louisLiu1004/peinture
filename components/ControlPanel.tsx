@@ -4,16 +4,18 @@ import { Select, OptionGroup } from './Select';
 import { Tooltip } from './Tooltip';
 import { Settings, ChevronUp, ChevronDown, Minus, Plus, Dices, Cpu } from 'lucide-react';
 import { ModelOption, ProviderOption, AspectRatioOption, ImageSizeOption } from '../types';
-import { 
-    HF_MODEL_OPTIONS, 
-    GITEE_MODEL_OPTIONS, 
-    MS_MODEL_OPTIONS, 
+import {
+    HF_MODEL_OPTIONS,
+    GITEE_MODEL_OPTIONS,
+    MS_MODEL_OPTIONS,
     OPENROUTER_MODEL_OPTIONS,
-    Z_IMAGE_MODELS, 
-    FLUX_MODELS, 
-    getModelConfig, 
+    OPENAI_COMPAT_MODEL_OPTIONS,
+    Z_IMAGE_MODELS,
+    FLUX_MODELS,
+    getModelConfig,
     getGuidanceScaleConfig,
-    getOpenRouterModelConfig
+    getOpenRouterModelConfig,
+    getOpenAICompatModelConfig
 } from '../constants';
 import { getCustomProviders, getServiceMode } from '../services/utils';
 
@@ -66,7 +68,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         const updateModelOptions = () => {
             const serviceMode = getServiceMode();
             const groups: OptionGroup[] = [];
-            
+
             const showBase = serviceMode === 'local' || serviceMode === 'hydration';
             const showCustom = serviceMode === 'server' || serviceMode === 'hydration';
 
@@ -104,6 +106,16 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                         options: OPENROUTER_MODEL_OPTIONS.map(m => ({ label: m.label, value: `openrouter:${m.value}` }))
                     });
                 }
+
+                // OpenAI Compatible (Only if token and URL exist)
+                const hasOpenAICompatToken = localStorage.getItem('openaiCompatToken');
+                const hasOpenAICompatApiUrl = localStorage.getItem('openaiCompatApiUrl');
+                if (hasOpenAICompatToken && hasOpenAICompatApiUrl) {
+                    groups.push({
+                        label: t.provider_openai_compat || 'OpenAI Compatible',
+                        options: OPENAI_COMPAT_MODEL_OPTIONS.map(m => ({ label: m.label, value: `openai-compat:${m.value}` }))
+                    });
+                }
             }
 
             // 2. Custom Providers
@@ -137,11 +149,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         const customProviders = getCustomProviders();
         // Try to find custom provider matching the ID
         const activeCustomProvider = customProviders.find(p => p.id === provider);
-        
+
         if (activeCustomProvider) {
             // It's a custom provider
             const customModel = activeCustomProvider.models.generate?.find(m => m.id === model);
-            
+
             if (customModel) {
                 return {
                     isCustom: true,
@@ -169,6 +181,17 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 steps: null, // OpenRouter doesn't use steps
                 guidance: null, // OpenRouter doesn't use guidance
                 imageSize: openRouterConfig?.capabilities.imageSize || null
+            };
+        }
+
+        // Check for OpenAI Compatible model capabilities
+        if (provider === 'openai-compat') {
+            const openAICompatConfig = getOpenAICompatModelConfig(model);
+            return {
+                isCustom: false,
+                steps: null,
+                guidance: null,
+                imageSize: openAICompatConfig?.capabilities.imageSize || null
             };
         }
 
@@ -220,7 +243,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         if (parts.length >= 2) {
             const newProvider = parts[0] as ProviderOption;
             const newModel = parts.slice(1).join(':') as ModelOption; // Join back in case model ID has colons
-            
+
             setProvider(newProvider);
             setModel(newModel);
         }
@@ -319,11 +342,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                                                 key={size}
                                                 type="button"
                                                 onClick={() => setImageSize(size)}
-                                                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                                                    imageSize === size
-                                                        ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'
-                                                        : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
-                                                }`}
+                                                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${imageSize === size
+                                                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'
+                                                    : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+                                                    }`}
                                             >
                                                 {size}
                                             </button>

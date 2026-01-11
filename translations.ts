@@ -109,7 +109,7 @@ export const translations = {
     storage_off: "Off",
     storage_s3: "S3 Storage",
     storage_webdav: "WebDAV",
-    
+
     s3_access_key: "Access Key ID",
     s3_secret_key: "Secret Access Key",
     s3_bucket: "Bucket Name (Optional)",
@@ -155,7 +155,8 @@ export const translations = {
     provider_gitee: "Gitee AI",
     provider_modelscope: "Model Scope",
     provider_openrouter: "OpenRouter",
-    
+    provider_openai_compat: "OpenAI Compatible",
+
     // OpenRouter
     openrouterToken: "Access Token",
     openrouterTokenHelp: "Required. Get",
@@ -166,7 +167,19 @@ export const translations = {
     error_openrouter_token_missing: "OpenRouter Token is required. Please set it in Settings.",
     error_openrouter_unauthorized: "OpenRouter token is invalid or unauthorized.",
     error_openrouter_prompt_failed: "OpenRouter prompt optimization failed. Please try again.",
-    
+
+    // OpenAI Compatible
+    openaiCompatToken: "Access Token",
+    openaiCompatApiUrl: "API URL",
+    openaiCompatTokenHelp: "Required. Enter your API key.",
+    openaiCompatApiUrlHelp: "Enter your OpenAI-compatible API endpoint.",
+    openaiCompatApiUrlPlaceholder: "https://api.example.com",
+    openaiCompatEnvConfigured: "Configured via Environment",
+    openaiCompatEnvConfiguredDesc: "API Key has been pre-configured via environment variables. Enter your own key below to override.",
+    error_openai_compat_token_missing: "OpenAI Compatible API key is required. Please set it in Settings.",
+    error_openai_compat_unauthorized: "OpenAI Compatible API key is invalid or unauthorized.",
+    error_openai_compat_api_url_missing: "OpenAI Compatible API URL is required. Please set it in Settings.",
+
     // Custom Providers
     add_provider: "Add Provider",
     custom_providers: "Custom Providers",
@@ -251,7 +264,7 @@ export const translations = {
     ar_landscape_4_3: "PC Desktop 4:3",
     ar_portrait_3_2: "DSLR Camera 3:2",
     ar_landscape_2_3: "DSLR Photography 2:3",
-    
+
     // Image Editor
     tool_select: "Select",
     tool_move: "Move / Pan",
@@ -265,7 +278,7 @@ export const translations = {
     editor_placeholder: "Describe edits...",
     editor_generate: "Generate",
     re_edit: "Return",
-    
+
     // New Editor Strings
     upload_ref_image: "Upload Reference Image",
     ref_image_n: "Reference Image {n}",
@@ -276,7 +289,7 @@ export const translations = {
     menu_center: "Center View",
     menu_download: "Download Image",
     menu_exit: "Exit Editor",
-    
+
     select_from_history: "Select from History",
     select_from_gallery: "Select from Cloud Gallery",
     history_modal_title: "Select Generated Image",
@@ -315,7 +328,7 @@ export const translations = {
     upload_media: "Upload Media",
     cloud_gallery_empty: "No Cloud Images",
     cloud_gallery_desc: "Upload images to cloud storage to see them here.",
-    
+
     // Gallery Setup Guide
     gallery_setup_title: "Configure Cloud Gallery",
     gallery_setup_desc: "Connect your S3 or WebDAV storage to view your generated creations anywhere.",
@@ -411,7 +424,7 @@ export const translations = {
     liveGenerating: "视频生成中...",
     liveGeneratingDesc: "生成视频描述中...",
     liveError: "视频生成失败",
-    
+
     // Service Mode
     service_mode: "服务模式",
     mode_local: "本地",
@@ -482,7 +495,8 @@ export const translations = {
     provider_gitee: "Gitee AI",
     provider_modelscope: "Model Scope",
     provider_openrouter: "OpenRouter",
-    
+    provider_openai_compat: "OpenAI 兼容",
+
     // OpenRouter
     openrouterToken: "访问令牌",
     openrouterTokenHelp: "必需。获取",
@@ -493,6 +507,18 @@ export const translations = {
     error_openrouter_token_missing: "需要配置 OpenRouter 令牌。请在设置中进行配置。",
     error_openrouter_unauthorized: "OpenRouter 令牌无效或未授权。",
     error_openrouter_prompt_failed: "OpenRouter 提示词优化失败，请重试。",
+
+    // OpenAI Compatible
+    openaiCompatToken: "访问令牌",
+    openaiCompatApiUrl: "API 地址",
+    openaiCompatTokenHelp: "必需。输入您的 API 密钥。",
+    openaiCompatApiUrlHelp: "输入您的 OpenAI 兼容 API 端点。",
+    openaiCompatApiUrlPlaceholder: "https://api.example.com",
+    openaiCompatEnvConfigured: "已通过环境变量配置",
+    openaiCompatEnvConfiguredDesc: "系统已通过环境变量预配置 API Key。如需使用自己的 Key，请在下方输入以覆盖。",
+    error_openai_compat_token_missing: "需要配置 OpenAI 兼容 API 密钥。请在设置中进行配置。",
+    error_openai_compat_unauthorized: "OpenAI 兼容 API 密钥无效或未授权。",
+    error_openai_compat_api_url_missing: "需要配置 OpenAI 兼容 API 地址。请在设置中进行配置。",
 
     // Custom Providers
     add_provider: "新增服务商",

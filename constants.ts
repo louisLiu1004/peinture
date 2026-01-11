@@ -1,5 +1,5 @@
 
-import { ModelOption, ProviderOption, OpenRouterModelConfig, AspectRatioOption } from './types';
+import { ModelOption, ProviderOption, OpenRouterModelConfig, AspectRatioOption, ImageSizeOption } from './types';
 
 // Map standardized UI IDs to Provider Specific API Strings
 export const API_MODEL_MAP: Record<ProviderOption, Record<string, string>> = {
@@ -63,39 +63,39 @@ export const MS_MODEL_OPTIONS = [
 const GEMINI_ASPECT_RATIOS: AspectRatioOption[] = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9'];
 
 export const OPENROUTER_MODEL_OPTIONS: OpenRouterModelConfig[] = [
-  { 
-    value: 'google/gemini-3-pro-image-preview', 
+  {
+    value: 'google/gemini-3-pro-image-preview',
     label: 'Gemini 3 Pro Image',
     capabilities: {
       imageSize: { options: ['1K', '2K', '4K'], default: '1K' },
       aspectRatio: { options: GEMINI_ASPECT_RATIOS, default: '1:1' }
     }
   },
-  { 
-    value: 'google/gemini-2.5-flash-image', 
+  {
+    value: 'google/gemini-2.5-flash-image',
     label: 'Gemini 2.5 Flash Image',
     capabilities: {
       imageSize: { options: ['1K', '2K', '4K'], default: '1K' },
       aspectRatio: { options: GEMINI_ASPECT_RATIOS, default: '1:1' }
     }
   },
-  { 
-    value: 'black-forest-labs/flux-pro', 
+  {
+    value: 'black-forest-labs/flux-pro',
     label: 'FLUX.1 Pro',
     capabilities: {}  // FLUX models don't support imageSize via OpenRouter
   },
-  { 
-    value: 'black-forest-labs/flux-1.1-pro', 
+  {
+    value: 'black-forest-labs/flux-1.1-pro',
     label: 'FLUX.1.1 Pro',
     capabilities: {}
   },
-  { 
-    value: 'black-forest-labs/flux-kontext-pro', 
+  {
+    value: 'black-forest-labs/flux-kontext-pro',
     label: 'FLUX Kontext Pro',
     capabilities: {}
   },
-  { 
-    value: 'black-forest-labs/flux-kontext-max', 
+  {
+    value: 'black-forest-labs/flux-kontext-max',
     label: 'FLUX Kontext Max',
     capabilities: {}
   }
@@ -106,18 +106,46 @@ export const getOpenRouterModelConfig = (modelId: string): OpenRouterModelConfig
   return OPENROUTER_MODEL_OPTIONS.find(m => m.value === modelId);
 };
 
+// OpenAI Compatible model options with capabilities
+export interface OpenAICompatModelConfig {
+  value: string;
+  label: string;
+  capabilities: {
+    imageSize?: { options: ImageSizeOption[]; default: ImageSizeOption };
+  };
+}
+
+export const OPENAI_COMPAT_MODEL_OPTIONS: OpenAICompatModelConfig[] = [
+  { value: 'gpt-image-1.5', label: 'GPT Image 1.5', capabilities: {} },
+  {
+    value: 'nano-banana-2',
+    label: 'Nano Banana 2',
+    capabilities: {
+      imageSize: { options: ['1K', '2K', '4K'], default: '1K' }
+    }
+  },
+  { value: 'gpt-4o', label: 'GPT-4o', capabilities: {} },
+  { value: 'dall-e-3', label: 'DALL-E 3', capabilities: {} },
+];
+
+// Helper function to get OpenAI Compat model config by model ID
+export const getOpenAICompatModelConfig = (modelId: string): OpenAICompatModelConfig | undefined => {
+  return OPENAI_COMPAT_MODEL_OPTIONS.find(m => m.value === modelId);
+};
+
 export const PROVIDER_OPTIONS = [
-    { value: 'huggingface', label: 'Hugging Face' },
-    { value: 'gitee', label: 'Gitee AI' },
-    { value: 'modelscope', label: 'Model Scope' },
-    { value: 'openrouter', label: 'OpenRouter' }
+  { value: 'huggingface', label: 'Hugging Face' },
+  { value: 'gitee', label: 'Gitee AI' },
+  { value: 'modelscope', label: 'Model Scope' },
+  { value: 'openrouter', label: 'OpenRouter' },
+  { value: 'openai-compat', label: 'OpenAI Compatible' }
 ];
 
 export const FLUX_MODELS = [
-    'flux-1-schnell', 
-    'flux-1-krea', 
-    'flux-1',
-    'flux-2'
+  'flux-1-schnell',
+  'flux-1-krea',
+  'flux-1',
+  'flux-2'
 ];
 
 export const Z_IMAGE_MODELS = ['z-image-turbo'];
@@ -162,33 +190,33 @@ export const getGuidanceScaleConfig = (model: ModelOption, provider: ProviderOpt
 // --- Unified Model Lists ---
 
 export interface UnifiedModelOption {
-    label: string;
-    value: string; // provider:modelId
-    provider: ProviderOption;
+  label: string;
+  value: string; // provider:modelId
+  provider: ProviderOption;
 }
 
 export const EDIT_MODELS: UnifiedModelOption[] = [
-    { label: 'Qwen Image Edit', value: 'huggingface:qwen-image-edit', provider: 'huggingface' },
-    { label: 'Qwen Image Edit', value: 'gitee:qwen-image-edit', provider: 'gitee' },
-    { label: 'Qwen Image Edit', value: 'modelscope:qwen-image-edit', provider: 'modelscope' },
-    { label: 'Gemini 2.5 Flash Image', value: 'openrouter:google/gemini-2.5-flash-image', provider: 'openrouter' },
-    { label: 'Gemini 3 Pro Image', value: 'openrouter:google/gemini-3-pro-image-preview', provider: 'openrouter' },
+  { label: 'Qwen Image Edit', value: 'huggingface:qwen-image-edit', provider: 'huggingface' },
+  { label: 'Qwen Image Edit', value: 'gitee:qwen-image-edit', provider: 'gitee' },
+  { label: 'Qwen Image Edit', value: 'modelscope:qwen-image-edit', provider: 'modelscope' },
+  { label: 'Gemini 2.5 Flash Image', value: 'openrouter:google/gemini-2.5-flash-image', provider: 'openrouter' },
+  { label: 'Gemini 3 Pro Image', value: 'openrouter:google/gemini-3-pro-image-preview', provider: 'openrouter' },
 ];
 
 export const LIVE_MODELS: UnifiedModelOption[] = [
-    { label: 'Wan 2.2', value: 'huggingface:wan2_2-i2v', provider: 'huggingface' },
-    { label: 'Wan 2.2', value: 'gitee:wan2_2-i2v', provider: 'gitee' },
+  { label: 'Wan 2.2', value: 'huggingface:wan2_2-i2v', provider: 'huggingface' },
+  { label: 'Wan 2.2', value: 'gitee:wan2_2-i2v', provider: 'gitee' },
 ];
 
 export const TEXT_MODELS: UnifiedModelOption[] = [
-    { label: 'OpenAI 4o mini', value: 'huggingface:openai-fast', provider: 'huggingface' },
-    { label: 'DeepSeek V3.2', value: 'gitee:deepseek-3_2', provider: 'gitee' },
-    { label: 'Qwen 3', value: 'gitee:qwen-3', provider: 'gitee' },
-    { label: 'DeepSeek V3.2', value: 'modelscope:deepseek-3_2', provider: 'modelscope' },
-    { label: 'Qwen 3', value: 'modelscope:qwen-3', provider: 'modelscope' },
-    { label: 'OpenAI 4o mini', value: 'openrouter:openai/gpt-4o-mini', provider: 'openrouter' },
+  { label: 'OpenAI 4o mini', value: 'huggingface:openai-fast', provider: 'huggingface' },
+  { label: 'DeepSeek V3.2', value: 'gitee:deepseek-3_2', provider: 'gitee' },
+  { label: 'Qwen 3', value: 'gitee:qwen-3', provider: 'gitee' },
+  { label: 'DeepSeek V3.2', value: 'modelscope:deepseek-3_2', provider: 'modelscope' },
+  { label: 'Qwen 3', value: 'modelscope:qwen-3', provider: 'modelscope' },
+  { label: 'OpenAI 4o mini', value: 'openrouter:openai/gpt-4o-mini', provider: 'openrouter' },
 ];
 
 export const UPSCALER_MODELS: UnifiedModelOption[] = [
-    { label: 'RealESRGAN x4 Plus', value: 'huggingface:RealESRGAN_x4plus', provider: 'huggingface' },
+  { label: 'RealESRGAN x4 Plus', value: 'huggingface:RealESRGAN_x4plus', provider: 'huggingface' },
 ];

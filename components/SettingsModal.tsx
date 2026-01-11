@@ -7,8 +7,9 @@ import { getGiteeTokenStats } from '../services/giteeService';
 import { getMsTokenStats } from '../services/msService';
 import { transformModelList } from '../services/customService';
 import { hasEnvOpenRouterToken } from '../services/openrouterService';
+import { hasEnvOpenAICompatToken } from '../services/openaiCompatService';
 import { ProviderOption, S3Config, WebDAVConfig, StorageType, ModelOption, CustomProvider, RemoteModelList, ServiceMode } from '../types';
-import { 
+import {
     getSystemPromptContent,
     saveSystemPromptContent,
     DEFAULT_SYSTEM_PROMPT_CONTENT,
@@ -35,9 +36,9 @@ import {
     saveServiceMode,
     saveCustomProviders
 } from '../services/utils';
-import { 
-    getS3Config, 
-    saveS3Config, 
+import {
+    getS3Config,
+    saveS3Config,
     DEFAULT_S3_CONFIG,
     getWebDAVConfig,
     saveWebDAVConfig,
@@ -48,13 +49,13 @@ import {
     testS3Connection
 } from '../services/storageService';
 import { Select, Option, OptionGroup } from './Select';
-import { 
-    HF_MODEL_OPTIONS, 
-    GITEE_MODEL_OPTIONS, 
-    MS_MODEL_OPTIONS, 
-    EDIT_MODELS, 
-    LIVE_MODELS, 
-    TEXT_MODELS, 
+import {
+    HF_MODEL_OPTIONS,
+    GITEE_MODEL_OPTIONS,
+    MS_MODEL_OPTIONS,
+    EDIT_MODELS,
+    LIVE_MODELS,
+    TEXT_MODELS,
     UPSCALER_MODELS,
     UnifiedModelOption
 } from '../constants';
@@ -103,6 +104,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
     const [openrouterToken, setOpenrouterToken] = useState('');
     const [showOpenrouterToken, setShowOpenrouterToken] = useState(false);
 
+    // OpenAI Compatible State
+    const [openaiCompatToken, setOpenaiCompatToken] = useState('');
+    const [openaiCompatApiUrl, setOpenaiCompatApiUrl] = useState('');
+    const [showOpenaiCompatToken, setShowOpenaiCompatToken] = useState(false);
+
     // Custom Providers State
     const [customProviders, setCustomProviders] = useState<CustomProvider[]>([]);
     const [newProviderName, setNewProviderName] = useState('');
@@ -137,7 +143,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
     const [showS3Secret, setShowS3Secret] = useState(false);
     const [webdavConfig, setWebdavConfig] = useState<WebDAVConfig>(DEFAULT_WEBDAV_CONFIG);
     const [showWebdavPass, setShowWebdavPass] = useState(false);
-    
+
     // WebDAV Test State
     const [isTestingWebDAV, setIsTestingWebDAV] = useState(false);
     const [testWebDAVResult, setTestWebDAVResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -170,6 +176,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
             const storedOpenrouterToken = localStorage.getItem('openrouterToken') || '';
             setOpenrouterToken(storedOpenrouterToken);
 
+            const storedOpenaiCompatToken = localStorage.getItem('openaiCompatToken') || '';
+            setOpenaiCompatToken(storedOpenaiCompatToken);
+            const storedOpenaiCompatApiUrl = localStorage.getItem('openaiCompatApiUrl') || '';
+            setOpenaiCompatApiUrl(storedOpenaiCompatApiUrl);
+
             // Load Custom Providers
             setCustomProviders(getCustomProviders());
 
@@ -184,7 +195,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
             setStorageType(getStorageType());
             setS3Config(getS3Config());
             setWebdavConfig(getWebDAVConfig());
-            
+
             // Reset test state
             setTestWebDAVResult(null);
             setTestS3Result(null);
@@ -206,7 +217,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
             if (provider && currentModel) {
                 setCreationModelValue(`${provider}:${currentModel}`);
             }
-            
+
             // Check tabs scroll on open
             setTimeout(checkTabsScroll, 100);
         } else {
@@ -229,15 +240,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
             if (isLocal) {
                 // HF (Always available)
                 baseList.filter(m => m.provider === 'huggingface').forEach(m => valid.add(m.value));
-                
+
                 // Gitee (Needs token)
                 if (giteeToken || localStorage.getItem('giteeToken')) {
-                     baseList.filter(m => m.provider === 'gitee').forEach(m => valid.add(m.value));
+                    baseList.filter(m => m.provider === 'gitee').forEach(m => valid.add(m.value));
                 }
-                
+
                 // MS (Needs token)
                 if (msToken || localStorage.getItem('msToken')) {
-                     baseList.filter(m => m.provider === 'modelscope').forEach(m => valid.add(m.value));
+                    baseList.filter(m => m.provider === 'modelscope').forEach(m => valid.add(m.value));
                 }
             }
 
@@ -314,13 +325,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
     // Handle Service Mode Change
     const handleServiceModeChange = (newMode: ServiceMode) => {
         setServiceModeState(newMode);
-        
+
         // Reset selections if switching to incompatible modes logic
         if (newMode === 'local') {
             // If user previously selected a custom provider model, reset to HF default
             const customList = getCustomProviders();
             const currentProviderIsCustom = customList.some(cp => cp.id === provider);
-            
+
             if (currentProviderIsCustom && setProvider && setModel) {
                 setProvider('huggingface');
                 setModel(HF_MODEL_OPTIONS[0].value as ModelOption);
@@ -369,21 +380,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
             if (hfOptions.length > 0) {
                 groups.push({ label: t.provider_huggingface, options: hfOptions });
             }
-            
+
             if (giteeToken || localStorage.getItem('giteeToken')) {
                 const giteeOptions = baseList.filter(m => m.provider === 'gitee').map(m => ({ value: m.value, label: cleanLabel(m.label) }));
                 if (giteeOptions.length > 0) {
                     groups.push({ label: t.provider_gitee, options: giteeOptions });
                 }
             }
-            
+
             if (msToken || localStorage.getItem('msToken')) {
                 const msOptions = baseList.filter(m => m.provider === 'modelscope').map(m => ({ value: m.value, label: cleanLabel(m.label) }));
                 if (msOptions.length > 0) {
                     groups.push({ label: t.provider_modelscope, options: msOptions });
                 }
             }
-            
+
             // OpenRouter - Show if token is configured (either from localStorage or env)
             if (openrouterToken || localStorage.getItem('openrouterToken') || hasEnvOpenRouterToken()) {
                 const openrouterOptions = baseList.filter(m => m.provider === 'openrouter').map(m => ({ value: m.value, label: cleanLabel(m.label) }));
@@ -449,13 +460,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
             if (newProviderToken) {
                 headers['Authorization'] = `Bearer ${newProviderToken}`;
             }
-            
+
             const response = await fetch(url, { headers });
             if (!response.ok) throw new Error('Fetch failed');
-            
+
             const rawData = await response.json();
             const transformedData = transformModelList(rawData);
-            
+
             setFetchedModels(transformedData);
             setFetchStatus('success');
         } catch (e) {
@@ -476,7 +487,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
 
     const handleAddCustomProvider = () => {
         if (!newProviderUrl || !fetchedModels) return;
-        
+
         let finalName = newProviderName.trim();
         if (!finalName) {
             try {
@@ -495,7 +506,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                 finalName = 'Custom';
             }
         }
-        
+
         const newProvider: CustomProvider = {
             id: generateUUID(),
             name: finalName,
@@ -504,13 +515,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
             models: fetchedModels,
             enabled: true
         };
-        
+
         addCustomProvider(newProvider);
         setCustomProviders(getCustomProviders());
-        
+
         // Dispatch storage event to update ControlPanel immediately
         window.dispatchEvent(new Event("storage"));
-        
+
         handleClearAddForm();
     };
 
@@ -527,7 +538,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
     const handleRefreshCustomModels = async (id: string) => {
         const provider = customProviders.find(p => p.id === id);
         if (!provider) return;
-        
+
         setRefreshingProviders(prev => ({ ...prev, [id]: true }));
         setRefreshSuccessProviders(prev => ({ ...prev, [id]: false })); // Reset success
 
@@ -541,9 +552,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
             if (!response.ok) throw new Error('Fetch failed');
             const rawData = await response.json();
             const transformedData = transformModelList(rawData);
-            
+
             handleUpdateCustomProvider(id, { models: transformedData });
-            
+
             // Success Feedback
             setRefreshSuccessProviders(prev => ({ ...prev, [id]: true }));
             setTimeout(() => {
@@ -566,11 +577,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
         localStorage.setItem('giteeToken', giteeToken.trim());
         localStorage.setItem('msToken', msToken.trim());
         localStorage.setItem('openrouterToken', openrouterToken.trim());
-        
+        localStorage.setItem('openaiCompatToken', openaiCompatToken.trim());
+        localStorage.setItem('openaiCompatApiUrl', openaiCompatApiUrl.trim());
+
         saveSystemPromptContent(systemPrompt);
         saveTranslationPromptContent(translationPrompt);
         saveVideoSettings(provider, videoSettings);
-        
+
         saveStorageType(storageType);
         saveS3Config(s3Config);
         saveWebDAVConfig(webdavConfig);
@@ -580,10 +593,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
         saveLiveModelConfig(liveModelValue);
         saveTextModelConfig(textModelValue);
         saveUpscalerModelConfig(upscalerModelValue);
-        
+
         // Save Service Mode
         saveServiceMode(serviceMode);
-        
+
         // Save Custom Providers (persists edits)
         saveCustomProviders(customProviders);
 
@@ -593,10 +606,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
             setProvider(newProvider as ProviderOption);
             setModel(newModel as ModelOption);
         }
-        
+
         // Dispatch storage event to notify components
         window.dispatchEvent(new Event("storage"));
-        
+
         onClose();
     };
 
@@ -607,7 +620,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
     const handleRestoreTranslationDefault = () => {
         setTranslationPrompt(DEFAULT_TRANSLATION_SYSTEM_PROMPT);
     };
-    
+
     const handleTestWebDAV = async () => {
         // Mixed Content Check
         if (window.location.protocol === 'https:' && webdavConfig.url.startsWith('http:')) {
@@ -653,8 +666,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
     };
 
     const getEndpointPlaceholder = () => {
-         const region = s3Config.region || 'us-east-1';
-         return `https://s3.${region}.amazonaws.com`;
+        const region = s3Config.region || 'us-east-1';
+        return `https://s3.${region}.amazonaws.com`;
     };
 
     // Render Collapsible Provider Section
@@ -681,7 +694,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                     </div>
                 </button>
             </div>
-            
+
             <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${openProvider === id ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
                 <div className="overflow-hidden">
                     <div className="p-2 space-y-4 mb-2">
@@ -715,18 +728,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                         e.preventDefault();
                         const text = e.clipboardData.getData('text');
                         const processed = text.replace(/[\r\n]+/g, ',');
-                        
+
                         const input = e.currentTarget;
                         const start = input.selectionStart || 0;
                         const end = input.selectionEnd || 0;
                         const currentValue = input.value;
-                        
+
                         const newValue = currentValue.substring(0, start) + processed + currentValue.substring(end);
-                        
+
                         const event = {
                             target: { value: newValue }
                         } as React.ChangeEvent<HTMLInputElement>;
-                        
+
                         onChange(event);
                     }}
                     placeholder={placeholder}
@@ -740,7 +753,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                     {isShow ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
             </div>
-            
+
             {statsObj.total > 1 && (
                 <div className="grid grid-cols-3 gap-3">
                     <div className="bg-white/5 border border-white/5 rounded-xl p-2.5 text-center">
@@ -750,13 +763,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                     <div className="bg-green-500/10 border border-green-500/10 rounded-xl p-2.5 text-center">
                         <div className="text-[10px] text-green-400/60 uppercase tracking-wider mb-0.5">{t.tokenActive}</div>
                         <div className="text-sm font-bold text-green-400 font-mono flex items-center justify-center gap-1">
-                           <ShieldCheck className="w-3 h-3" /> {statsObj.active}
+                            <ShieldCheck className="w-3 h-3" /> {statsObj.active}
                         </div>
                     </div>
                     <div className="bg-red-500/10 border border-red-500/10 rounded-xl p-2.5 text-center">
                         <div className="text-[10px] text-red-400/60 uppercase tracking-wider mb-0.5">{t.tokenExhausted}</div>
                         <div className="text-sm font-bold text-red-400 font-mono flex items-center justify-center gap-1">
-                           <ShieldAlert className="w-3 h-3" /> {statsObj.exhausted}
+                            <ShieldAlert className="w-3 h-3" /> {statsObj.exhausted}
                         </div>
                     </div>
                 </div>
@@ -789,13 +802,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
     const showBaseProviders = serviceMode === 'local' || serviceMode === 'hydration';
     const showCustomProviders = serviceMode === 'server' || serviceMode === 'hydration';
     // Local mode hides "Add" button and custom provider list
-    const showAddCustomProvider = serviceMode !== 'local'; 
+    const showAddCustomProvider = serviceMode !== 'local';
 
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-             <div className="w-full max-w-md bg-[#0D0B14]/95 backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-[0_0_50px_-12px_rgba(124,58,237,0.15)] ring-1 ring-white/[0.05] overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
+            <div className="w-full max-w-md bg-[#0D0B14]/95 backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-[0_0_50px_-12px_rgba(124,58,237,0.15)] ring-1 ring-white/[0.05] overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
                 <div className="flex items-center justify-between px-5 py-2 border-b border-white/[0.06] bg-white/[0.02] flex-shrink-0">
                     <h2 className="text-lg font-bold text-white tracking-wide">{t.settings}</h2>
                     <button onClick={onClose} className="group p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.08] transition-all duration-200">
@@ -805,13 +818,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
 
                 {/* Tab Navigation with Scroll Button */}
                 <div className="relative border-b border-white/[0.06]">
-                    <div 
+                    <div
                         ref={tabsRef}
                         onScroll={checkTabsScroll}
                         className="flex items-center px-5 space-x-6 overflow-x-auto scrollbar-hide pr-12"
                     >
                         {tabs.map((tab) => (
-                            <button 
+                            <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as any)}
                                 className={`group relative py-4 text-sm font-medium transition-colors duration-300 flex items-center gap-2 flex-shrink-0 ${activeTab === tab.id ? 'text-white' : 'text-white/40 hover:text-white/80'}`}
@@ -833,10 +846,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                         </button>
                     </div>
                 </div>
-                
+
                 {/* Tab Content Container */}
                 <div className="flex-1 overflow-x-hidden overflow-y-auto relative">
-                    <div 
+                    <div
                         className="flex h-full transition-transform duration-500 ease-in-out"
                         style={{ transform: `translateX(-${activeTabIndex * 100}%)` }}
                     >
@@ -855,21 +868,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                             <div className="grid grid-cols-2 gap-2">
                                                 <button
                                                     onClick={() => setLang('en')}
-                                                    className={`px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 border ${
-                                                        lang === 'en' 
-                                                        ? 'bg-purple-600/90 border-purple-500/50 text-white shadow-lg shadow-purple-900/20' 
+                                                    className={`px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 border ${lang === 'en'
+                                                        ? 'bg-purple-600/90 border-purple-500/50 text-white shadow-lg shadow-purple-900/20'
                                                         : 'bg-white/[0.03] border-white/10 text-white/60 hover:bg-white/[0.06] hover:text-white hover:border-white/20'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     English
                                                 </button>
                                                 <button
                                                     onClick={() => setLang('zh')}
-                                                    className={`px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 border ${
-                                                        lang === 'zh' 
-                                                        ? 'bg-purple-600/90 border-purple-500/50 text-white shadow-lg shadow-purple-900/20' 
+                                                    className={`px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 border ${lang === 'zh'
+                                                        ? 'bg-purple-600/90 border-purple-500/50 text-white shadow-lg shadow-purple-900/20'
                                                         : 'bg-white/[0.03] border-white/10 text-white/60 hover:bg-white/[0.06] hover:text-white hover:border-white/20'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     中文
                                                 </button>
@@ -891,11 +902,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                     <button
                                                         key={option.id}
                                                         onClick={() => handleServiceModeChange(option.id as ServiceMode)}
-                                                        className={`px-2 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 border truncate ${
-                                                            serviceMode === option.id
+                                                        className={`px-2 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 border truncate ${serviceMode === option.id
                                                             ? 'bg-blue-600/90 border-blue-500/50 text-white shadow-lg shadow-blue-900/20'
                                                             : 'bg-white/[0.03] border-white/10 text-white/60 hover:bg-white/[0.06] hover:text-white hover:border-white/20'
-                                                        }`}
+                                                            }`}
                                                     >
                                                         {option.label}
                                                     </button>
@@ -923,11 +933,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                             if (option.id === 'webdav') setActiveTab('webdav');
                                                             setTimeout(() => handleScrollTabsRight(), 300)
                                                         }}
-                                                        className={`px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 border ${
-                                                            storageType === option.id
+                                                        className={`px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 border ${storageType === option.id
                                                             ? 'bg-green-600/90 border-green-500/50 text-white shadow-lg shadow-green-900/20'
                                                             : 'bg-white/[0.03] border-white/10 text-white/60 hover:bg-white/[0.06] hover:text-white hover:border-white/20'
-                                                        }`}
+                                                            }`}
                                                     >
                                                         {option.label}
                                                     </button>
@@ -942,7 +951,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                 {t.clearData}
                                             </label>
                                             <p className="text-xs text-white/40 mb-3">{t.clearDataDesc}</p>
-                                            
+
                                             {!showClearConfirm ? (
                                                 <button
                                                     onClick={() => setShowClearConfirm(true)}
@@ -986,26 +995,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                         {showBaseProviders && (
                                             <>
                                                 {renderProviderPanel(
-                                                    'huggingface', 
-                                                    t.provider_huggingface, 
+                                                    'huggingface',
+                                                    t.provider_huggingface,
                                                     'bg-yellow-500',
                                                     renderTokenInput(
-                                                        token, 
-                                                        handleTokenChange, 
-                                                        showToken, 
-                                                        () => setShowToken(!showToken), 
-                                                        stats, 
-                                                        'hf_...,hf_...', 
-                                                        t.hfTokenHelp, 
-                                                        t.hfTokenLink, 
-                                                        t.hfTokenHelpEnd, 
+                                                        token,
+                                                        handleTokenChange,
+                                                        showToken,
+                                                        () => setShowToken(!showToken),
+                                                        stats,
+                                                        'hf_...,hf_...',
+                                                        t.hfTokenHelp,
+                                                        t.hfTokenLink,
+                                                        t.hfTokenHelpEnd,
                                                         "https://huggingface.co/settings/tokens"
                                                     )
                                                 )}
 
                                                 {renderProviderPanel(
-                                                    'gitee', 
-                                                    t.provider_gitee, 
+                                                    'gitee',
+                                                    t.provider_gitee,
                                                     'bg-red-500',
                                                     renderTokenInput(
                                                         giteeToken,
@@ -1022,8 +1031,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                 )}
 
                                                 {renderProviderPanel(
-                                                    'modelscope', 
-                                                    t.provider_modelscope, 
+                                                    'modelscope',
+                                                    t.provider_modelscope,
                                                     'bg-blue-500',
                                                     renderTokenInput(
                                                         msToken,
@@ -1040,8 +1049,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                 )}
 
                                                 {renderProviderPanel(
-                                                    'openrouter', 
-                                                    t.provider_openrouter, 
+                                                    'openrouter',
+                                                    t.provider_openrouter,
                                                     'bg-cyan-500',
                                                     (
                                                         <div className="space-y-4">
@@ -1072,9 +1081,60 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                                 </button>
                                                             </div>
                                                             <p className="text-xs text-white/40 leading-relaxed">
-                                                                {hasEnvOpenRouterToken() ? (t.seedOptional + ". ") : (t.openrouterTokenHelp || "Required. ")} 
+                                                                {hasEnvOpenRouterToken() ? (t.seedOptional + ". ") : (t.openrouterTokenHelp || "Required. ")}
                                                                 {t.openrouterTokenHelp && !hasEnvOpenRouterToken() ? t.openrouterTokenHelp + " " : "Get "}
                                                                 <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 hover:underline transition-colors">{t.openrouterTokenLink || "API Key"}</a> {t.openrouterTokenHelpEnd || "from dashboard."}
+                                                            </p>
+                                                        </div>
+                                                    )
+                                                )}
+
+                                                {renderProviderPanel(
+                                                    'openai-compat',
+                                                    t.provider_openai_compat,
+                                                    'bg-emerald-500',
+                                                    (
+                                                        <div className="space-y-4">
+                                                            {hasEnvOpenAICompatToken() && (
+                                                                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-start gap-3">
+                                                                    <Check className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                                                                    <div>
+                                                                        <div className="text-xs font-medium text-emerald-400">{t.openaiCompatEnvConfigured}</div>
+                                                                        <div className="text-xs text-white/40 mt-1">{t.openaiCompatEnvConfiguredDesc}</div>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            <div className="space-y-2">
+                                                                <label className="text-xs font-medium text-white/60">{t.openaiCompatApiUrl}</label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={openaiCompatApiUrl}
+                                                                    onChange={(e) => setOpenaiCompatApiUrl(e.target.value)}
+                                                                    placeholder={t.openaiCompatApiUrlPlaceholder}
+                                                                    className="w-full px-4 py-2.5 bg-[#1A1625] border border-white/10 rounded-xl text-white placeholder:text-white/20 focus:outline-none focus:border-emerald-500/50 transition-all font-mono text-sm"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                <label className="text-xs font-medium text-white/60">{t.openaiCompatToken}</label>
+                                                                <div className="relative group">
+                                                                    <input
+                                                                        type={showOpenaiCompatToken ? "text" : "password"}
+                                                                        value={openaiCompatToken}
+                                                                        onChange={(e) => setOpenaiCompatToken(e.target.value)}
+                                                                        placeholder={hasEnvOpenAICompatToken() ? t.seedOptional : "sk-..."}
+                                                                        className="w-full pl-4 pr-10 py-2.5 bg-[#1A1625] border border-white/10 rounded-xl text-white placeholder:text-white/20 focus:outline-none focus:border-emerald-500/50 transition-all font-mono text-sm"
+                                                                    />
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setShowOpenaiCompatToken(!showOpenaiCompatToken)}
+                                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/5"
+                                                                    >
+                                                                        {showOpenaiCompatToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            <p className="text-xs text-white/40 leading-relaxed">
+                                                                {t.openaiCompatTokenHelp} {t.openaiCompatApiUrlHelp}
                                                             </p>
                                                         </div>
                                                     )
@@ -1095,7 +1155,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                                 {/* Name */}
                                                                 <div className="space-y-2">
                                                                     <label className="text-xs font-medium text-white/60">{t.provider_name}</label>
-                                                                    <input 
+                                                                    <input
                                                                         type="text"
                                                                         value={cp.name}
                                                                         onChange={(e) => handleUpdateCustomProvider(cp.id, { name: e.target.value })}
@@ -1106,7 +1166,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                                 <div className="space-y-2">
                                                                     <label className="text-xs font-medium text-white/60">{t.api_url}</label>
                                                                     <div className="flex items-center gap-2">
-                                                                        <input 
+                                                                        <input
                                                                             type="text"
                                                                             value={cp.apiUrl}
                                                                             onChange={(e) => handleUpdateCustomProvider(cp.id, { apiUrl: e.target.value })}
@@ -1115,11 +1175,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                                         <button
                                                                             onClick={() => handleRefreshCustomModels(cp.id)}
                                                                             disabled={refreshingProviders[cp.id]}
-                                                                            className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5 ${
-                                                                                refreshingProviders[cp.id] 
-                                                                                ? 'bg-white/5 text-white/40 border-white/5 cursor-not-allowed' 
+                                                                            className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5 ${refreshingProviders[cp.id]
+                                                                                ? 'bg-white/5 text-white/40 border-white/5 cursor-not-allowed'
                                                                                 : 'bg-white/10 text-white/80 border-white/10 hover:bg-white/20'
-                                                                            }`}
+                                                                                }`}
                                                                             title={t.get_models || "Update Models"}
                                                                         >
                                                                             {refreshingProviders[cp.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
@@ -1130,7 +1189,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                                 <div className="space-y-2">
                                                                     <label className="text-xs font-medium text-white/60">{t.api_token}</label>
                                                                     <div className="relative w-full">
-                                                                        <input 
+                                                                        <input
                                                                             type={showCustomProviderTokens[cp.id] ? "text" : "password"}
                                                                             value={cp.token || ''}
                                                                             onChange={(e) => handleUpdateCustomProvider(cp.id, { token: e.target.value })}
@@ -1145,20 +1204,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                                         </button>
                                                                     </div>
                                                                 </div>
-                                                                
+
                                                                 {/* Stats & Delete */}
                                                                 <div className="flex items-center justify-between">
-                                                                     <div className={`text-xs transition-colors duration-300 flex items-center gap-1.5 ${refreshSuccessProviders[cp.id] ? 'text-green-400 font-medium' : 'text-white/40'}`}>
+                                                                    <div className={`text-xs transition-colors duration-300 flex items-center gap-1.5 ${refreshSuccessProviders[cp.id] ? 'text-green-400 font-medium' : 'text-white/40'}`}>
                                                                         {refreshSuccessProviders[cp.id] && <Check className="w-3 h-3" />}
                                                                         {t.models_count.replace('{count}', (
-                                                                            (cp.models.generate?.length || 0) + 
-                                                                            (cp.models.edit?.length || 0) + 
-                                                                            (cp.models.video?.length || 0) + 
+                                                                            (cp.models.generate?.length || 0) +
+                                                                            (cp.models.edit?.length || 0) +
+                                                                            (cp.models.video?.length || 0) +
                                                                             (cp.models.text?.length || 0) +
                                                                             (cp.models.upscaler?.length || 0)
                                                                         ))}
-                                                                     </div>
-                                                                     <button 
+                                                                    </div>
+                                                                    <button
                                                                         onClick={() => handleDeleteCustomProvider(cp.id)}
                                                                         className="p-2 text-white/40 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                                                                         title={t.delete || "Delete"}
@@ -1181,7 +1240,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                                     <label className="text-xs font-medium text-white/60">
                                                                         {t.provider_name} <span className="text-white/30">({t.seedOptional})</span>
                                                                     </label>
-                                                                    <input 
+                                                                    <input
                                                                         type="text"
                                                                         value={newProviderName}
                                                                         onChange={e => setNewProviderName(e.target.value)}
@@ -1191,7 +1250,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                                 <div className="space-y-2">
                                                                     <label className="text-xs font-medium text-white/60">{t.api_url}</label>
                                                                     <div className="flex items-center gap-2">
-                                                                        <input 
+                                                                        <input
                                                                             type="text"
                                                                             value={newProviderUrl}
                                                                             onChange={e => setNewProviderUrl(e.target.value)}
@@ -1201,13 +1260,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                                         <button
                                                                             onClick={handleFetchModels}
                                                                             disabled={!newProviderUrl || fetchStatus === 'loading'}
-                                                                            className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5 ${
-                                                                                fetchStatus === 'success' 
-                                                                                ? 'bg-green-500/20 text-green-400 border-green-500/30' 
+                                                                            className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5 ${fetchStatus === 'success'
+                                                                                ? 'bg-green-500/20 text-green-400 border-green-500/30'
                                                                                 : fetchStatus === 'failed'
-                                                                                ? 'bg-red-500/20 text-red-400 border-red-500/30'
-                                                                                : 'bg-white/10 text-white/80 border-white/10 hover:bg-white/20'
-                                                                            }`}
+                                                                                    ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                                                                                    : 'bg-white/10 text-white/80 border-white/10 hover:bg-white/20'
+                                                                                }`}
                                                                         >
                                                                             {fetchStatus === 'loading' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Globe className="w-3.5 h-3.5" />}
                                                                             {fetchStatus === 'loading' ? t.fetch_status_loading : (fetchStatus === 'success' ? t.fetch_status_success : (fetchStatus === 'failed' ? t.fetch_status_failed : t.get_models))}
@@ -1217,7 +1275,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                                 <div className="space-y-2">
                                                                     <label className="text-xs font-medium text-white/60">{t.api_token}</label>
                                                                     <div className="relative w-full">
-                                                                        <input 
+                                                                        <input
                                                                             type={showNewProviderToken ? "text" : "password"}
                                                                             value={newProviderToken}
                                                                             onChange={e => setNewProviderToken(e.target.value)}
@@ -1237,9 +1295,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                                     <div className="p-3 bg-white/5 rounded-lg text-xs text-green-400 border border-green-500/20 flex items-center gap-2">
                                                                         <Check className="w-3 h-3" />
                                                                         {t.models_count.replace('{count}', (
-                                                                            (fetchedModels.generate?.length || 0) + 
-                                                                            (fetchedModels.edit?.length || 0) + 
-                                                                            (fetchedModels.video?.length || 0) + 
+                                                                            (fetchedModels.generate?.length || 0) +
+                                                                            (fetchedModels.edit?.length || 0) +
+                                                                            (fetchedModels.video?.length || 0) +
                                                                             (fetchedModels.text?.length || 0) +
                                                                             (fetchedModels.upscaler?.length || 0)
                                                                         ))}
@@ -1337,7 +1395,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                     <MessageSquare className="w-4 h-4 text-pink-400" />
                                                     {t.systemPrompts}
                                                 </label>
-                                                
+
                                                 <button
                                                     onClick={handleRestoreDefault}
                                                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white/50 hover:text-white bg-white/5 hover:bg-white/10 transition-colors border border-transparent hover:border-white/10"
@@ -1349,7 +1407,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                             </div>
 
                                             <div className="relative group">
-                                                <textarea 
+                                                <textarea
                                                     value={systemPrompt}
                                                     onChange={(e) => setSystemPrompt(e.target.value)}
                                                     placeholder={t.promptContent}
@@ -1365,7 +1423,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                     <Languages className="w-4 h-4 text-blue-400" />
                                                     {t.translationPrompt}
                                                 </label>
-                                                
+
                                                 <button
                                                     onClick={handleRestoreTranslationDefault}
                                                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white/50 hover:text-white bg-white/5 hover:bg-white/10 transition-colors border border-transparent hover:border-white/10"
@@ -1377,7 +1435,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                             </div>
 
                                             <div className="relative group">
-                                                <textarea 
+                                                <textarea
                                                     value={translationPrompt}
                                                     onChange={(e) => setTranslationPrompt(e.target.value)}
                                                     placeholder={t.promptContent}
@@ -1405,7 +1463,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                     {t.restoreDefault}
                                                 </button>
                                             </div>
-                                            <textarea 
+                                            <textarea
                                                 value={videoSettings.prompt}
                                                 onChange={(e) => setVideoSettings({ ...videoSettings, prompt: e.target.value })}
                                                 className="w-full h-24 bg-white/[0.03] border border-white/10 rounded-xl p-4 text-sm text-white/90 placeholder:text-white/20 focus:outline-0 focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500/50 hover:border-white/20 resize-none custom-scrollbar leading-relaxed font-mono transition-all duration-300 ease-out"
@@ -1484,12 +1542,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
 
                                 {/* Tab 6: Cloud Storage (S3) */}
                                 {tab.id === 's3' && (
-                                     <div className="space-y-6">
+                                    <div className="space-y-6">
                                         <div className="space-y-4">
                                             {/* Access Key */}
                                             <div className="flex items-center justify-between gap-4">
                                                 <label className="text-sm font-medium text-white/80 w-1/3 flex-shrink-0">{t.s3_access_key}</label>
-                                                <input 
+                                                <input
                                                     type="text"
                                                     value={s3Config.accessKeyId}
                                                     onChange={(e) => setS3Config({ ...s3Config, accessKeyId: e.target.value })}
@@ -1501,7 +1559,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                             <div className="flex items-center justify-between gap-4">
                                                 <label className="text-sm font-medium text-white/80 w-1/3 flex-shrink-0">{t.s3_secret_key}</label>
                                                 <div className="relative w-full">
-                                                    <input 
+                                                    <input
                                                         type={showS3Secret ? "text" : "password"}
                                                         value={s3Config.secretAccessKey}
                                                         onChange={(e) => setS3Config({ ...s3Config, secretAccessKey: e.target.value })}
@@ -1521,7 +1579,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                             <div className="flex gap-4">
                                                 <div className="flex-1 space-y-1">
                                                     <label className="text-xs font-medium text-white/60 block">{t.s3_bucket}</label>
-                                                    <input 
+                                                    <input
                                                         type="text"
                                                         value={s3Config.bucket || ''}
                                                         onChange={(e) => setS3Config({ ...s3Config, bucket: e.target.value })}
@@ -1530,7 +1588,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                 </div>
                                                 <div className="w-1/3 space-y-1">
                                                     <label className="text-xs font-medium text-white/60 block">{t.s3_region}</label>
-                                                    <input 
+                                                    <input
                                                         type="text"
                                                         value={s3Config.region || ''}
                                                         onChange={(e) => setS3Config({ ...s3Config, region: e.target.value })}
@@ -1542,7 +1600,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                             {/* Endpoint */}
                                             <div className="flex-1 space-y-1">
                                                 <label className="text-xs font-medium text-white/60 block">{t.s3_endpoint}</label>
-                                                <input 
+                                                <input
                                                     type="text"
                                                     value={s3Config.endpoint || ''}
                                                     onChange={(e) => setS3Config({ ...s3Config, endpoint: e.target.value })}
@@ -1550,12 +1608,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                     className="w-full px-3 py-2 bg-white/[0.03] border border-white/10 rounded-lg text-white text-sm focus:outline-0 focus:border-green-500/50 transition-all"
                                                 />
                                             </div>
-                                            
-                                             <div className="flex gap-4">
+
+                                            <div className="flex gap-4">
                                                 {/* Domain */}
                                                 <div className="flex-1 space-y-1">
                                                     <label className="text-xs font-medium text-white/60 block">{t.s3_domain}</label>
-                                                    <input 
+                                                    <input
                                                         type="text"
                                                         value={s3Config.publicDomain || ''}
                                                         onChange={(e) => setS3Config({ ...s3Config, publicDomain: e.target.value })}
@@ -1567,7 +1625,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                 {/* File Prefix */}
                                                 <div className="flex-1 space-y-1">
                                                     <label className="text-xs font-medium text-white/60 block">{t.s3_prefix}</label>
-                                                    <input 
+                                                    <input
                                                         type="text"
                                                         value={s3Config.prefix ?? 'peinture/'}
                                                         onChange={(e) => setS3Config({ ...s3Config, prefix: e.target.value })}
@@ -1580,7 +1638,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                             {/* Test Connection Button */}
                                             <div className="flex flex-col gap-2">
                                                 <div className="flex justify-end">
-                                                    <button 
+                                                    <button
                                                         onClick={handleTestS3}
                                                         disabled={isTestingS3}
                                                         className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600/20 text-green-400 hover:bg-green-600/30 border border-green-500/30 transition-all text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1611,12 +1669,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
 
                                 {/* Tab 7: WebDAV Storage */}
                                 {tab.id === 'webdav' && (
-                                     <div className="space-y-6">
+                                    <div className="space-y-6">
                                         <div className="space-y-4">
                                             {/* URL */}
                                             <div className="flex items-center justify-between gap-4">
                                                 <label className="text-sm font-medium text-white/80 w-1/3 flex-shrink-0">{t.webdav_url}</label>
-                                                <input 
+                                                <input
                                                     type="text"
                                                     value={webdavConfig.url}
                                                     onChange={(e) => setWebdavConfig({ ...webdavConfig, url: e.target.value })}
@@ -1628,7 +1686,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                             {/* Username */}
                                             <div className="flex items-center justify-between gap-4">
                                                 <label className="text-sm font-medium text-white/80 w-1/3 flex-shrink-0">{t.webdav_username}</label>
-                                                <input 
+                                                <input
                                                     type="text"
                                                     value={webdavConfig.username}
                                                     onChange={(e) => setWebdavConfig({ ...webdavConfig, username: e.target.value })}
@@ -1640,7 +1698,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                             <div className="flex items-center justify-between gap-4">
                                                 <label className="text-sm font-medium text-white/80 w-1/3 flex-shrink-0">{t.webdav_password}</label>
                                                 <div className="relative w-full">
-                                                    <input 
+                                                    <input
                                                         type={showWebdavPass ? "text" : "password"}
                                                         value={webdavConfig.password}
                                                         onChange={(e) => setWebdavConfig({ ...webdavConfig, password: e.target.value })}
@@ -1659,7 +1717,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                             {/* Directory */}
                                             <div className="flex items-center justify-between gap-4">
                                                 <label className="text-sm font-medium text-white/80 w-1/3 flex-shrink-0">{t.webdav_directory}</label>
-                                                <input 
+                                                <input
                                                     type="text"
                                                     value={webdavConfig.directory}
                                                     onChange={(e) => setWebdavConfig({ ...webdavConfig, directory: e.target.value })}
@@ -1670,7 +1728,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                             {/* Test Connection Button */}
                                             <div className="flex flex-col gap-2">
                                                 <div className="flex justify-end">
-                                                    <button 
+                                                    <button
                                                         onClick={handleTestWebDAV}
                                                         disabled={isTestingWebDAV}
                                                         className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/30 transition-all text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
