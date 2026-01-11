@@ -1,5 +1,10 @@
 
 import { S3Config, CloudFile, WebDAVConfig, StorageType } from "../types";
+import {
+    hasServerStorage,
+    getServerStorageType,
+    getProxyUrl
+} from "./proxyService";
 
 const S3_CONFIG_KEY = 'app_s3_config';
 const WEBDAV_CONFIG_KEY = 'app_webdav_config';
@@ -33,18 +38,10 @@ export const getS3Config = (): S3Config => {
         }
     }
 
-    // 2. Environment Variables
-    if (import.meta.env.VITE_S3_ACCESS_KEY) {
-        return {
-            accessKeyId: import.meta.env.VITE_S3_ACCESS_KEY,
-            secretAccessKey: import.meta.env.VITE_S3_SECRET_KEY,
-            region: import.meta.env.VITE_S3_REGION || 'us-east-1',
-            endpoint: import.meta.env.VITE_S3_ENDPOINT || '',
-            bucket: import.meta.env.VITE_S3_BUCKET || '',
-            publicDomain: import.meta.env.VITE_S3_PUBLIC_DOMAIN || '',
-            prefix: 'peinture/'
-        };
-    }
+    // 2. Environment Variables (Removed for security - use Backend Proxy or Manual Config)
+    // The build-time variables are no longer injected to avoid exposing credentials in client bundle.
+
+    return DEFAULT_S3_CONFIG;
 
     return DEFAULT_S3_CONFIG;
 };
@@ -58,32 +55,26 @@ export const getWebDAVConfig = (): WebDAVConfig => {
         }
     }
 
-    // 2. Environment Variables
-    if (import.meta.env.VITE_WEBDAV_URL) {
-        return {
-            url: import.meta.env.VITE_WEBDAV_URL,
-            username: import.meta.env.VITE_WEBDAV_USER || '',
-            password: import.meta.env.VITE_WEBDAV_PASSWORD || '',
-            directory: 'peinture'
-        };
-    }
+    // 2. Environment Variables (Removed for security)
+
+    return DEFAULT_WEBDAV_CONFIG;
 
     return DEFAULT_WEBDAV_CONFIG;
 };
 
 export const getStorageType = (): StorageType => {
+    // 0. Server Config (Async check logic usually handled at call site, but for sync we rely on defaults)
+    // Note: Since this is synchronous, we can't await server config here.
+    // The components should ideally react to server config changes.
+    // However, for compatibility, we will modify the usage sites to check server config first.
+
     // 1. LocalStorage
     if (typeof localStorage !== 'undefined') {
         const stored = localStorage.getItem(STORAGE_TYPE_KEY);
         if (stored) return stored as StorageType;
     }
 
-    // 2. Environment Variables
-    const envType = import.meta.env.VITE_STORAGE_TYPE;
-    if (envType && ['s3', 'webdav', 'local', 'off'].includes(envType)) {
-        return envType as StorageType;
-    }
-
+    // 2. Default
     return 'off';
 };
 
@@ -269,6 +260,31 @@ export const uploadToCloud = async (
 };
 
 export const listCloudFiles = async (): Promise<CloudFile[]> => {
+    // --- Backend Proxy List ---
+    if (await hasServerStorage()) {
+        const serverType = await getServerStorageType();
+        if (serverType === 's3' || serverType === 'webdav') {
+            try {
+                const response = await fetch(getProxyUrl('storage', 'list'));
+                if (!response.ok) throw new Error(`List failed: ${response.status}`);
+                const data = await response.json();
+
+                // Convert date strings to Date objects
+                return (data.files || []).map((f: any) => ({
+                    ...f,
+                    lastModified: new Date(f.lastModified),
+                    // Determine type if missing
+                    type: f.type || (f.key.match(/\.(jpg|jpeg|png|webp|gif)$/i) ? 'image' :
+                        f.key.match(/\.(mp4|webm|mov)$/i) ? 'video' : 'unknown')
+                }));
+            } catch (e) {
+                console.error("Proxy list files failed", e);
+                return [];
+            }
+        }
+    }
+    // --- End Backend Proxy List ---
+
     const type = getStorageType();
 
     if (type === 's3') {
@@ -369,6 +385,36 @@ const fetchS3Signed = async (url: string, method: string, config: S3Config): Pro
 };
 
 export const deleteCloudFile = async (keyOrUrl: string): Promise<void> => {
+    // --- Backend Proxy Delete ---
+    if (await hasServerStorage()) {
+        const serverType = await getServerStorageType();
+        if (serverType === 's3' || serverType === 'webdav') {
+            const id = getFileId(keyOrUrl);
+            const metadataKey = id ? `${id}.metadata.json` : `${keyOrUrl}.metadata.json`;
+
+            // Delete metadata file (best effort)
+            try {
+                await fetch(getProxyUrl('storage', 'delete'), {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key: metadataKey })
+                });
+            } catch (e) { }
+
+            // Delete actual file
+            const key = keyOrUrl.split('/').pop() || keyOrUrl; // Simple key extraction
+            const response = await fetch(getProxyUrl('storage', 'delete'), {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key })
+            });
+
+            if (!response.ok) throw new Error(`Delete failed: ${response.status}`);
+            return;
+        }
+    }
+    // --- End Backend Proxy Delete ---
+
     const type = getStorageType();
 
     try {

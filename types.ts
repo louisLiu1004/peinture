@@ -89,17 +89,17 @@ export interface OpenRouterModelConfig {
     capabilities: OpenRouterModelCapabilities;
 }
 
-export type ModelOption = 
-    | "z-image-turbo" 
-    | "qwen-image" 
-    | "ovis-image" 
+export type ModelOption =
+    | "z-image-turbo"
+    | "qwen-image"
+    | "ovis-image"
     | "flux-2"
-    | "flux-1-schnell" 
+    | "flux-1-schnell"
     | "flux-1-krea"
     | "flux-1"
     | string; // Allow custom model strings
 
-export type ProviderOption = "huggingface" | "gitee" | "modelscope" | "openrouter" | string;
+export type ProviderOption = "huggingface" | "openrouter" | "openai-compat" | string;
 
 export interface GenerationParams {
     model: ModelOption;
@@ -111,25 +111,25 @@ export interface GenerationParams {
 }
 
 export interface RemoteModel {
-  id: string;
-  name: string;
-  type: string[];
-  steps?: {
-    range: [number, number];
-    default: number;
-  };
-  guidance?: {
-    range: [number, number];
-    default: number;
-  };
+    id: string;
+    name: string;
+    type: string[];
+    steps?: {
+        range: [number, number];
+        default: number;
+    };
+    guidance?: {
+        range: [number, number];
+        default: number;
+    };
 }
 
 export interface RemoteModelList {
-  generate?: RemoteModel[];
-  edit?: RemoteModel[];
-  video?: RemoteModel[];
-  text?: RemoteModel[];
-  upscaler?: RemoteModel[];
+    generate?: RemoteModel[];
+    edit?: RemoteModel[];
+    video?: RemoteModel[];
+    text?: RemoteModel[];
+    upscaler?: RemoteModel[];
 }
 
 export interface CustomProvider {

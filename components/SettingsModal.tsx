@@ -3,8 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Save, KeyRound, Languages, ShieldCheck, ShieldAlert, Database, Eye, EyeOff, MessageSquare, RotateCcw, Settings2, MessageSquareText, Brain, Film, Clock, Layers, Sparkles, HardDrive, Server, Loader2, Check, AlertCircle, PlugZap, Cpu, ChevronDown, ChevronUp, Plus, Trash2, Globe, ChevronRight, Github, Router } from 'lucide-react';
 import { Language } from '../translations';
 import { getTokenStats } from '../services/hfService';
-import { getGiteeTokenStats } from '../services/giteeService';
-import { getMsTokenStats } from '../services/msService';
+
 import { transformModelList } from '../services/customService';
 import { hasEnvOpenRouterToken } from '../services/openrouterService';
 import { hasEnvOpenAICompatToken } from '../services/openaiCompatService';
@@ -51,8 +50,7 @@ import {
 import { Select, Option, OptionGroup } from './Select';
 import {
     HF_MODEL_OPTIONS,
-    GITEE_MODEL_OPTIONS,
-    MS_MODEL_OPTIONS,
+
     EDIT_MODELS,
     LIVE_MODELS,
     TEXT_MODELS,
@@ -90,15 +88,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
     const [stats, setStats] = useState({ total: 0, active: 0, exhausted: 0 });
     const [showToken, setShowToken] = useState(false);
 
-    // Gitee Token State
-    const [giteeToken, setGiteeToken] = useState('');
-    const [giteeStats, setGiteeStats] = useState({ total: 0, active: 0, exhausted: 0 });
-    const [showGiteeToken, setShowGiteeToken] = useState(false);
 
-    // Model Scope Token State
-    const [msToken, setMsToken] = useState('');
-    const [msStats, setMsStats] = useState({ total: 0, active: 0, exhausted: 0 });
-    const [showMsToken, setShowMsToken] = useState(false);
 
     // OpenRouter Token State
     const [openrouterToken, setOpenrouterToken] = useState('');
@@ -165,13 +155,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
             setToken(storedToken);
             setStats(getTokenStats(storedToken));
 
-            const storedGiteeToken = localStorage.getItem('giteeToken') || '';
-            setGiteeToken(storedGiteeToken);
-            setGiteeStats(getGiteeTokenStats(storedGiteeToken));
 
-            const storedMsToken = localStorage.getItem('msToken') || '';
-            setMsToken(storedMsToken);
-            setMsStats(getMsTokenStats(storedMsToken));
 
             const storedOpenrouterToken = localStorage.getItem('openrouterToken') || '';
             setOpenrouterToken(storedOpenrouterToken);
@@ -241,15 +225,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                 // HF (Always available)
                 baseList.filter(m => m.provider === 'huggingface').forEach(m => valid.add(m.value));
 
-                // Gitee (Needs token)
-                if (giteeToken || localStorage.getItem('giteeToken')) {
-                    baseList.filter(m => m.provider === 'gitee').forEach(m => valid.add(m.value));
-                }
 
-                // MS (Needs token)
-                if (msToken || localStorage.getItem('msToken')) {
-                    baseList.filter(m => m.provider === 'modelscope').forEach(m => valid.add(m.value));
-                }
             }
 
             // Custom Providers
@@ -267,8 +243,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
         // 1. Validate Creation Model
         const baseCreationList: UnifiedModelOption[] = [
             ...HF_MODEL_OPTIONS.map(m => ({ label: m.label, value: `huggingface:${m.value}`, provider: 'huggingface' as ProviderOption })),
-            ...GITEE_MODEL_OPTIONS.map(m => ({ label: m.label, value: `gitee:${m.value}`, provider: 'gitee' as ProviderOption })),
-            ...MS_MODEL_OPTIONS.map(m => ({ label: m.label, value: `modelscope:${m.value}`, provider: 'modelscope' as ProviderOption }))
+
         ];
         const validCreation = getValidValues('generate', baseCreationList);
         // Only reset if we have options but current is invalid
@@ -320,7 +295,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
             }
         }
 
-    }, [customProviders, serviceMode, giteeToken, msToken]);
+    }, [customProviders, serviceMode]);
 
     // Handle Service Mode Change
     const handleServiceModeChange = (newMode: ServiceMode) => {
@@ -363,7 +338,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
 
     // Helper to clean labels
     const cleanLabel = (label: string) => {
-        return label.replace(/\s*\(HF\)$/, '').replace(/\s*\(Gitee\)$/, '').replace(/\s*\(MS\)$/, '');
+        return label.replace(/\s*\(HF\)$/, '');
     };
 
     // Group Options including Custom Providers based on Service Mode
@@ -381,19 +356,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                 groups.push({ label: t.provider_huggingface, options: hfOptions });
             }
 
-            if (giteeToken || localStorage.getItem('giteeToken')) {
-                const giteeOptions = baseList.filter(m => m.provider === 'gitee').map(m => ({ value: m.value, label: cleanLabel(m.label) }));
-                if (giteeOptions.length > 0) {
-                    groups.push({ label: t.provider_gitee, options: giteeOptions });
-                }
-            }
 
-            if (msToken || localStorage.getItem('msToken')) {
-                const msOptions = baseList.filter(m => m.provider === 'modelscope').map(m => ({ value: m.value, label: cleanLabel(m.label) }));
-                if (msOptions.length > 0) {
-                    groups.push({ label: t.provider_modelscope, options: msOptions });
-                }
-            }
 
             // OpenRouter - Show if token is configured (either from localStorage or env)
             if (openrouterToken || localStorage.getItem('openrouterToken') || hasEnvOpenRouterToken()) {
@@ -440,19 +403,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
         setStats(getTokenStats(newVal));
     };
 
-    // Gitee Handlers
-    const handleGiteeTokenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const newVal = e.target.value;
-        setGiteeToken(newVal);
-        setGiteeStats(getGiteeTokenStats(newVal));
-    };
 
-    // Model Scope Handlers
-    const handleMsTokenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const newVal = e.target.value;
-        setMsToken(newVal);
-        setMsStats(getMsTokenStats(newVal));
-    };
 
     // OpenRouter Handlers
     const handleOpenrouterTokenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -583,8 +534,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
 
     const handleSave = () => {
         localStorage.setItem('huggingFaceToken', token.trim());
-        localStorage.setItem('giteeToken', giteeToken.trim());
-        localStorage.setItem('msToken', msToken.trim());
+
         localStorage.setItem('openrouterToken', openrouterToken.trim());
         localStorage.setItem('openaiCompatToken', openaiCompatToken.trim());
         localStorage.setItem('openaiCompatApiUrl', openaiCompatApiUrl.trim());

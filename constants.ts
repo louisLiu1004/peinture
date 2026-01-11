@@ -13,48 +13,13 @@ export const API_MODEL_MAP: Record<ProviderOption, Record<string, string>> = {
     'wan2_2-i2v': 'wan2.2', // video (internal/HF space convention)
     'RealESRGAN_x4plus': 'RealESRGAN_x4plus', // upscaler
   },
-  gitee: {
-    'z-image-turbo': 'z-image-turbo',
-    'qwen-image': 'Qwen-Image',
-    'flux-2': 'FLUX.2-dev',
-    'flux-1-schnell': 'flux-1-schnell',
-    'flux-1-krea': 'FLUX_1-Krea-dev',
-    'flux-1': 'FLUX.1-dev',
-    'deepseek-3_2': 'DeepSeek-V3.2', // text
-    'qwen-3': 'Qwen3-Next-80B-A3B-Instruct', // text
-    'qwen-image-edit': 'Qwen-Image-Edit', // edit
-    'wan2_2-i2v': 'Wan2_2-I2V-A14B', // video
-  },
-  modelscope: {
-    'z-image-turbo': 'Tongyi-MAI/Z-Image-Turbo',
-    'flux-2': 'black-forest-labs/FLUX.2-dev',
-    'flux-1-krea': 'black-forest-labs/FLUX.1-Krea-dev',
-    'flux-1': 'MusePublic/489_ckpt_FLUX_1',
-    'deepseek-3_2': 'deepseek-ai/DeepSeek-V3.2', // text
-    'qwen-3': "Qwen/Qwen3-Next-80B-A3B-Instruct", // text
-    'qwen-image-edit': 'Qwen/Qwen-Image-Edit-2509', // edit
-  }
 };
 
 export const HF_MODEL_OPTIONS = [
   { value: 'z-image-turbo', label: 'Z-Image Turbo' }
 ];
 
-export const GITEE_MODEL_OPTIONS = [
-  { value: 'z-image-turbo', label: 'Z-Image Turbo' },
-  { value: 'qwen-image', label: 'Qwen Image' },
-  { value: 'flux-2', label: 'FLUX.2' },
-  { value: 'flux-1-schnell', label: 'FLUX.1 Schnell' },
-  { value: 'flux-1-krea', label: 'FLUX.1 Krea' },
-  { value: 'flux-1', label: 'FLUX.1' }
-];
 
-export const MS_MODEL_OPTIONS = [
-  { value: 'z-image-turbo', label: 'Z-Image Turbo' },
-  { value: 'flux-2', label: 'FLUX.2' },
-  { value: 'flux-1-krea', label: 'FLUX.1 Krea' },
-  { value: 'flux-1', label: 'FLUX.1' }
-];
 
 // Gemini supported aspect ratios
 const GEMINI_ASPECT_RATIOS: AspectRatioOption[] = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9'];
@@ -101,8 +66,6 @@ export const getOpenAICompatModelConfig = (modelId: string): OpenAICompatModelCo
 
 export const PROVIDER_OPTIONS = [
   { value: 'huggingface', label: 'Hugging Face' },
-  { value: 'gitee', label: 'Gitee AI' },
-  { value: 'modelscope', label: 'Model Scope' },
   { value: 'openrouter', label: 'OpenRouter' },
   { value: 'openai-compat', label: 'OpenAI Compatible' }
 ];
@@ -117,20 +80,7 @@ export const FLUX_MODELS = [
 export const Z_IMAGE_MODELS = ['z-image-turbo'];
 
 export const getModelConfig = (provider: ProviderOption, model: ModelOption) => {
-  if (provider === 'gitee') {
-    if (model === 'z-image-turbo') return { min: 1, max: 20, default: 9 };
-    if (model === 'qwen-image') return { min: 4, max: 50, default: 20 };
-    if (model === 'flux-1-schnell') return { min: 1, max: 50, default: 8 };
-    if (model === 'flux-1-krea') return { min: 1, max: 50, default: 20 };
-    if (model === 'flux-1') return { min: 1, max: 50, default: 20 };
-    if (model === 'flux-2') return { min: 1, max: 50, default: 20 };
-  } else if (provider === 'modelscope') {
-    if (model === 'z-image-turbo') return { min: 1, max: 20, default: 9 };
-    if (model === 'flux-2') return { min: 1, max: 50, default: 20 };
-    if (model === 'flux-1-krea') return { min: 1, max: 50, default: 20 };
-    if (model === 'flux-1') return { min: 1, max: 50, default: 20 };
-  } else {
-    // Hugging Face
+  if (provider === 'huggingface') {
     if (model === 'z-image-turbo') return { min: 1, max: 20, default: 9 };
     if (model === 'flux-1-schnell') return { min: 1, max: 50, default: 8 };
     if (model === 'qwen-image') return { min: 4, max: 28, default: 8 };
@@ -140,16 +90,6 @@ export const getModelConfig = (provider: ProviderOption, model: ModelOption) => 
 };
 
 export const getGuidanceScaleConfig = (model: ModelOption, provider: ProviderOption) => {
-  if (provider === 'gitee') {
-    if (model === 'flux-1-schnell') return { min: 0, max: 50, step: 0.1, default: 7.5 };
-    if (model === 'flux-1-krea') return { min: 0, max: 20, step: 0.1, default: 4.5 };
-    if (model === 'flux-1') return { min: 0, max: 20, step: 0.1, default: 4.5 };
-    if (model === 'flux-2') return { min: 1, max: 10, step: 0.1, default: 3.5 };
-  } else if (provider === 'modelscope') {
-    if (model === 'flux-2') return { min: 1, max: 10, step: 0.1, default: 3.5 };
-    if (model === 'flux-1-krea') return { min: 1, max: 20, step: 0.1, default: 3.5 };
-    if (model === 'flux-1') return { min: 1, max: 20, step: 0.1, default: 3.5 };
-  }
   return null;
 };
 
@@ -163,23 +103,16 @@ export interface UnifiedModelOption {
 
 export const EDIT_MODELS: UnifiedModelOption[] = [
   { label: 'Qwen Image Edit', value: 'huggingface:qwen-image-edit', provider: 'huggingface' },
-  { label: 'Qwen Image Edit', value: 'gitee:qwen-image-edit', provider: 'gitee' },
-  { label: 'Qwen Image Edit', value: 'modelscope:qwen-image-edit', provider: 'modelscope' },
   { label: 'Gemini 3 Pro Image', value: 'openrouter:google/gemini-3-pro-image-preview', provider: 'openrouter' },
   { label: 'Nano Banana 2', value: 'openai-compat:nano-banana-2', provider: 'openai-compat' },
 ];
 
 export const LIVE_MODELS: UnifiedModelOption[] = [
   { label: 'Wan 2.2', value: 'huggingface:wan2_2-i2v', provider: 'huggingface' },
-  { label: 'Wan 2.2', value: 'gitee:wan2_2-i2v', provider: 'gitee' },
 ];
 
 export const TEXT_MODELS: UnifiedModelOption[] = [
   { label: 'OpenAI 4o mini', value: 'huggingface:openai-fast', provider: 'huggingface' },
-  { label: 'DeepSeek V3.2', value: 'gitee:deepseek-3_2', provider: 'gitee' },
-  { label: 'Qwen 3', value: 'gitee:qwen-3', provider: 'gitee' },
-  { label: 'DeepSeek V3.2', value: 'modelscope:deepseek-3_2', provider: 'modelscope' },
-  { label: 'Qwen 3', value: 'modelscope:qwen-3', provider: 'modelscope' },
   { label: 'OpenAI 4o mini', value: 'openrouter:openai/gpt-4o-mini', provider: 'openrouter' },
 ];
 

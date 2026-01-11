@@ -50,12 +50,13 @@ const saveTokenStatusStore = (store: TokenStatusStore) => {
   }
 };
 
+import { hasServerProvider, getProxyUrl } from "./proxyService";
+
 export const getTokens = (rawInput?: string | null): string[] => {
   const input = rawInput !== undefined
     ? rawInput
     : (typeof localStorage !== 'undefined' ? localStorage.getItem(TOKEN_STORAGE_KEY) : null)
-    || import.meta.env.VITE_HF_TOKEN
-    || '';
+    || ''; // Removed VITE_HF_TOKEN
   if (!input) return [];
   return input.split(',').map(t => t.trim()).filter(t => t.length > 0);
 };
@@ -89,6 +90,11 @@ const markTokenExhausted = (token: string) => {
 // --- API Execution Wrapper ---
 
 const runWithTokenRetry = async <T>(operation: (token: string | null) => Promise<T>): Promise<T> => {
+  // If backend proxy is available, use it (we mock a token)
+  if (await hasServerProvider('huggingface')) {
+    return operation('__server_proxy__');
+  }
+
   const tokens = getTokens();
 
   // If no tokens configured, run once with no token (public quota)
@@ -201,10 +207,19 @@ const getAuthHeaders = (token: string | null): Record<string, string> => {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-  if (token) {
+  if (token && token !== '__server_proxy__') {
     headers["Authorization"] = `Bearer ${token}`;
   }
   return headers;
+};
+
+// Helper to determine API URL (Direct or Proxy)
+const getApiUrl = (baseUrl: string, token: string | null) => {
+  if (token === '__server_proxy__') {
+    const path = baseUrl.replace('https://', '').replace('.hf.space', '');
+    return getProxyUrl('hf', path);
+  }
+  return baseUrl;
 };
 
 function extractCompleteEventData(sseStream: string): any | null {
@@ -245,7 +260,8 @@ const generateZImage = async (
 
   return runWithTokenRetry(async (token) => {
     try {
-      const queue = await fetch(ZIMAGE_BASE_API_URL + '/gradio_api/call/generate_image', {
+      const baseUrl = getApiUrl(ZIMAGE_BASE_API_URL, token);
+      const queue = await fetch(baseUrl + '/gradio_api/call/generate_image', {
         method: "POST",
         headers: getAuthHeaders(token),
         body: JSON.stringify({
@@ -253,7 +269,7 @@ const generateZImage = async (
         })
       });
       const { event_id } = await queue.json();
-      const response = await fetch(ZIMAGE_BASE_API_URL + '/gradio_api/call/generate_image/' + event_id, {
+      const response = await fetch(baseUrl + '/gradio_api/call/generate_image/' + event_id, {
         headers: getAuthHeaders(token)
       });
       const result = await response.text();
@@ -290,7 +306,8 @@ const generateFluxSchnellImage = async (
   return runWithTokenRetry(async (token) => {
     try {
       // Data: ["Prompt", Seed, Randomize seed (false), Width, Height, steps]
-      const queue = await fetch(FLUX_SCHNELL_BASE_API_URL + '/gradio_api/call/infer', {
+      const baseUrl = getApiUrl(FLUX_SCHNELL_BASE_API_URL, token);
+      const queue = await fetch(baseUrl + '/gradio_api/call/infer', {
         method: "POST",
         headers: getAuthHeaders(token),
         body: JSON.stringify({
@@ -298,7 +315,7 @@ const generateFluxSchnellImage = async (
         })
       });
       const { event_id } = await queue.json();
-      const response = await fetch(FLUX_SCHNELL_BASE_API_URL + '/gradio_api/call/infer/' + event_id, {
+      const response = await fetch(baseUrl + '/gradio_api/call/infer/' + event_id, {
         headers: getAuthHeaders(token)
       });
       const result = await response.text();
@@ -332,7 +349,8 @@ const generateQwenImage = async (
 
   return runWithTokenRetry(async (token) => {
     try {
-      const queue = await fetch(QWEN_IMAGE_BASE_API_URL + '/gradio_api/call/generate_image', {
+      const baseUrl = getApiUrl(QWEN_IMAGE_BASE_API_URL, token);
+      const queue = await fetch(baseUrl + '/gradio_api/call/generate_image', {
         method: "POST",
         headers: getAuthHeaders(token),
         body: JSON.stringify({
@@ -340,7 +358,7 @@ const generateQwenImage = async (
         })
       });
       const { event_id } = await queue.json();
-      const response = await fetch(QWEN_IMAGE_BASE_API_URL + '/gradio_api/call/generate_image/' + event_id, {
+      const response = await fetch(baseUrl + '/gradio_api/call/generate_image/' + event_id, {
         headers: getAuthHeaders(token)
       });
       const result = await response.text();
@@ -376,7 +394,8 @@ const generateOvisImage = async (
 
   return runWithTokenRetry(async (token) => {
     try {
-      const queue = await fetch(OVIS_IMAGE_BASE_API_URL + '/gradio_api/call/generate', {
+      const baseUrl = getApiUrl(OVIS_IMAGE_BASE_API_URL, token);
+      const queue = await fetch(baseUrl + '/gradio_api/call/generate', {
         method: "POST",
         headers: getAuthHeaders(token),
         body: JSON.stringify({
@@ -384,7 +403,7 @@ const generateOvisImage = async (
         })
       });
       const { event_id } = await queue.json();
-      const response = await fetch(OVIS_IMAGE_BASE_API_URL + '/gradio_api/call/generate/' + event_id, {
+      const response = await fetch(baseUrl + '/gradio_api/call/generate/' + event_id, {
         headers: getAuthHeaders(token)
       });
       const result = await response.text();
@@ -422,16 +441,25 @@ export const editImageQwen = async (
     try {
       const seed = Math.round(Math.random() * 2147483647);
 
-      // 1. Upload all Blobs to Gradio first to get temporary paths
+      // 1. Upload all Blobs first
+      // Note: For simplicity in proxy mode, we might need a better way to handle uploads.
+      // But currently uploadToGradio doesn't use getApiUrl helper.
+      // We will assume uploadToGradio works if URL is reachable (proxy might need adjustment for uploads).
+      // For now, let's update uploadToGradio signature to accept baseUrl directly or handle it.
+      // Actually, uploadToGradio is exported, let's check its usage.
+
+      const baseUrl = getApiUrl(QWEN_IMAGE_EDIT_BASE_API_URL, token);
+
       const imagePayloadPromises = imageBlobs.map(async (blob) => {
-        const path = await uploadToGradio(QWEN_IMAGE_EDIT_BASE_API_URL, blob, token, signal);
+        // We use the baseUrl here which might be a proxy URL
+        const path = await uploadToGradio(baseUrl, blob, token, signal);
         return { image: { path, meta: { _type: "gradio.FileData" } } };
       });
 
       const imagePayload = await Promise.all(imagePayloadPromises);
 
       // 2. Call Inference
-      const queue = await fetch(QWEN_IMAGE_EDIT_BASE_API_URL + '/gradio_api/call/infer', {
+      const queue = await fetch(baseUrl + '/gradio_api/call/infer', {
         method: "POST",
         headers: getAuthHeaders(token),
         body: JSON.stringify({
@@ -453,7 +481,7 @@ export const editImageQwen = async (
 
       await sleep(30);
 
-      const response = await fetch(QWEN_IMAGE_EDIT_BASE_API_URL + '/gradio_api/call/infer/' + event_id, {
+      const response = await fetch(baseUrl + '/gradio_api/call/infer/' + event_id, {
         headers: {
           "Accept": "text/event-stream",
           ...getAuthHeaders(token)
@@ -511,7 +539,8 @@ export const generateImage = async (
 export const upscaler = async (url: string): Promise<{ url: string }> => {
   return runWithTokenRetry(async (token) => {
     try {
-      const queue = await fetch(UPSCALER_BASE_API_URL + '/gradio_api/call/realesrgan', {
+      const baseUrl = getApiUrl(UPSCALER_BASE_API_URL, token);
+      const queue = await fetch(baseUrl + '/gradio_api/call/realesrgan', {
         method: "POST",
         headers: getAuthHeaders(token),
         body: JSON.stringify({
@@ -522,7 +551,7 @@ export const upscaler = async (url: string): Promise<{ url: string }> => {
 
       await sleep(30);
 
-      const response = await fetch(UPSCALER_BASE_API_URL + '/gradio_api/call/realesrgan/' + event_id, {
+      const response = await fetch(baseUrl + '/gradio_api/call/realesrgan/' + event_id, {
         headers: getAuthHeaders(token)
       });
       const result = await response.text();
@@ -589,16 +618,20 @@ export const createVideoTaskHF = async (imageInput: string | Blob, seed: number 
       const finalSeed = seed ?? Math.floor(Math.random() * 2147483647);
       const settings = getVideoSettings('huggingface');
 
+
+      // Handle base URL
+      const baseUrl = getApiUrl(WAN2_VIDEO_API_URL, token);
+
       let filePath = '';
 
       if (typeof imageInput === 'string') {
         filePath = imageInput;
       } else {
-        filePath = await uploadToGradio(WAN2_VIDEO_API_URL, imageInput, token);
+        filePath = await uploadToGradio(baseUrl, imageInput, token);
       }
 
       // Step 1: POST to queue
-      const queue = await fetch(WAN2_VIDEO_API_URL + '/gradio_api/call/generate_video', {
+      const queue = await fetch(baseUrl + '/gradio_api/call/generate_video', {
         method: "POST",
         headers: getAuthHeaders(token),
         body: JSON.stringify({
@@ -624,7 +657,7 @@ export const createVideoTaskHF = async (imageInput: string | Blob, seed: number 
       try {
         // Standard fetch will wait for the response body to fully arrive if we use .text()
         // This effectively waits for the stream to complete or close.
-        const response = await fetch(WAN2_VIDEO_API_URL + '/gradio_api/call/generate_video/' + event_id, {
+        const response = await fetch(baseUrl + '/gradio_api/call/generate_video/' + event_id, {
           headers: getAuthHeaders(token)
         });
 

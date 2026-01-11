@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { generateImage, upscaler, createVideoTaskHF, uploadToGradio, QWEN_IMAGE_EDIT_BASE_API_URL } from './services/hfService';
-import { generateGiteeImage, optimizePromptGitee, createVideoTask, getGiteeTaskStatus } from './services/giteeService';
-import { generateMSImage, optimizePromptMS } from './services/msService';
+
 import { generateCustomImage, generateCustomVideo, optimizePromptCustom, fetchServerModels, getCustomTaskStatus, upscaleImageCustom } from './services/customService';
 import { generateOpenRouterImage, optimizePromptOpenRouter } from './services/openrouterService';
 import { generateOpenAICompatImage, optimizePromptOpenAICompat } from './services/openaiCompatService';
@@ -31,7 +30,7 @@ import {
     RotateCcw,
     Lock,
 } from 'lucide-react';
-import { getModelConfig, getGuidanceScaleConfig, FLUX_MODELS, HF_MODEL_OPTIONS, GITEE_MODEL_OPTIONS, MS_MODEL_OPTIONS, LIVE_MODELS, getOpenRouterModelConfig, OPENAI_COMPAT_MODEL_OPTIONS, getOpenAICompatModelConfig } from './constants';
+import { getModelConfig, getGuidanceScaleConfig, FLUX_MODELS, HF_MODEL_OPTIONS, LIVE_MODELS, getOpenRouterModelConfig, OPENAI_COMPAT_MODEL_OPTIONS, getOpenAICompatModelConfig } from './constants';
 import { PromptInput } from './components/PromptInput';
 import { ControlPanel } from './components/ControlPanel';
 import { PreviewStage } from './components/PreviewStage';
@@ -369,9 +368,7 @@ export default function App() {
     useEffect(() => {
         if (currentView === 'creation') {
             let options: { value: string; label: string }[] = [];
-            if (provider === 'gitee') options = GITEE_MODEL_OPTIONS;
-            else if (provider === 'modelscope') options = MS_MODEL_OPTIONS;
-            else if (provider === 'huggingface') options = HF_MODEL_OPTIONS;
+            if (provider === 'huggingface') options = HF_MODEL_OPTIONS;
             else {
                 // Custom provider
                 const customProviders = getCustomProviders();
@@ -435,12 +432,7 @@ export default function App() {
             const updates = await Promise.all(readyToPoll.map(async (img) => {
                 if (!img.videoTaskId) return null;
                 try {
-                    if (img.videoProvider === 'gitee') {
-                        const result = await getGiteeTaskStatus(img.videoTaskId);
-                        if (result.status === 'success' || result.status === 'failed') {
-                            return { id: img.id, ...result };
-                        }
-                    } else if (img.videoProvider) {
+                    if (img.videoProvider) {
                         // Try Custom Provider
                         const customProviders = getCustomProviders();
                         const provider = customProviders.find(p => p.id === img.videoProvider);
@@ -637,11 +629,7 @@ export default function App() {
 
                 let result;
 
-                if (provider === 'gitee') {
-                    result = await generateGiteeImage(model, finalPrompt, aspectRatio, seedNumber, steps, requestHD, currentGuidanceScale);
-                } else if (provider === 'modelscope') {
-                    result = await generateMSImage(model, finalPrompt, aspectRatio, seedNumber, steps, requestHD, currentGuidanceScale);
-                } else if (provider === 'huggingface') {
+                if (provider === 'huggingface') {
                     result = await generateImage(model, finalPrompt, aspectRatio, seedNumber, requestHD, steps, currentGuidanceScale);
                 } else if (provider === 'openrouter') {
                     // Get model capabilities for OpenRouter
@@ -745,11 +733,7 @@ export default function App() {
 
     const handleReset = () => {
         setPrompt('');
-        if (provider === 'gitee') {
-            setModel(GITEE_MODEL_OPTIONS[0].value as ModelOption);
-        } else if (provider === 'modelscope') {
-            setModel(MS_MODEL_OPTIONS[0].value as ModelOption);
-        } else if (provider === 'huggingface') {
+        if (provider === 'huggingface') {
             setModel(HF_MODEL_OPTIONS[0].value as ModelOption);
         } else {
             // Custom
@@ -847,11 +831,7 @@ export default function App() {
             const config = getTextModelConfig(); // { provider, model }
             let optimized = '';
 
-            if (config.provider === 'gitee') {
-                optimized = await optimizePromptGitee(prompt);
-            } else if (config.provider === 'modelscope') {
-                optimized = await optimizePromptMS(prompt);
-            } else if (config.provider === 'huggingface') {
+            if (config.provider === 'huggingface') {
                 // Default HF uses simple internal logic or Pollinations
                 const { optimizePrompt } = await import('./services/hfService');
                 optimized = await optimizePrompt(prompt);
@@ -860,7 +840,7 @@ export default function App() {
             } else if (config.provider === 'openai-compat') {
                 optimized = await optimizePromptOpenAICompat(prompt, config.model);
             } else {
-                // Custom Provider
+                // Custom Provider (Assume custom or fallback)
                 const customProviders = getCustomProviders();
                 const activeProvider = customProviders.find(p => p.id === config.provider);
                 if (activeProvider) {
@@ -1005,41 +985,13 @@ export default function App() {
         // --- END NEW LOGIC ---
 
         // Start Generation
-        let width = imageDimensions?.width || 1024;
-        let height = imageDimensions?.height || 1024;
-
         const currentVideoProvider = liveConfig.provider as ProviderOption;
 
         // Prepare Image Input
         // Use unified fetchBlob which handles proxy fallback automatically for string URLs
         let imageInput: string | Blob = currentImage.url;
-        try {
-            if (currentImage.provider === 'gitee' || currentImage.provider === 'modelscope') {
-                // Fetch blob using unified utility which handles proxy fallback
-                imageInput = await fetchBlob(currentImage.url);
-            }
-        } catch (e) {
-            console.warn("Failed to fetch image blob for Live gen, using original URL", e);
-        }
 
-        // Resolution scaling logic (Specific to Gitee)
-        if (currentVideoProvider === 'gitee') {
-            // Enforce 720p (Short edge 720px)
-            const imgAspectRatio = width / height;
-            if (width >= height) {
-                // Landscape or Square: Set Height to 720
-                height = 720;
-                width = Math.round(height * imgAspectRatio);
-            } else {
-                // Portrait: Set Width to 720
-                width = 720;
-                height = Math.round(width / imgAspectRatio);
-            }
-
-            // Ensure even numbers (common requirement for video encoding)
-            if (width % 2 !== 0) width -= 1;
-            if (height % 2 !== 0) height -= 1;
-        }
+        // Gitee resolution logic removed
 
         try {
             const loadingImage = {
@@ -1051,27 +1003,12 @@ export default function App() {
             setCurrentImage(loadingImage);
             setHistory(prev => prev.map(img => img.id === loadingImage.id ? loadingImage : img));
 
-            if (currentVideoProvider === 'gitee') {
-                // Gitee: Create Task and let polling handle it
-                // Prompt is fetched from settings inside the service
-                const taskId = await createVideoTask(imageInput, width, height);
-                const nextPollTime = Date.now() + 400 * 1000;
-                const taskedImage = {
-                    ...loadingImage,
-                    videoTaskId: taskId,
-                    videoNextPollTime: nextPollTime
-                } as GeneratedImage;
-                setCurrentImage(taskedImage);
-                setHistory(prev => prev.map(img => img.id === taskedImage.id ? taskedImage : img));
-            } else if (currentVideoProvider === 'huggingface') {
+            if (currentVideoProvider === 'huggingface') {
                 // HF: Create Task handles the waiting internally (Long Connection)
-                // Prompt is fetched from settings inside the service
-                // Updated createVideoTaskHF supports Blob input
                 const videoUrl = await createVideoTaskHF(imageInput, currentImage.seed);
                 // Success
                 const successImage = { ...loadingImage, videoStatus: 'success', videoUrl } as GeneratedImage;
                 setHistory(prev => prev.map(img => img.id === successImage.id ? successImage : img));
-                // Update current if user hasn't switched away
                 setCurrentImage(prev => (prev && prev.id === successImage.id) ? successImage : prev);
 
                 if (currentImageRef.current?.id === successImage.id) {
@@ -1083,11 +1020,10 @@ export default function App() {
                 const activeProvider = customProviders.find(p => p.id === currentVideoProvider);
                 if (activeProvider) {
                     const settings = getVideoSettings(currentVideoProvider);
-                    // generateCustomVideo now returns object with url or taskId and optional predict time
                     const result = await generateCustomVideo(
                         activeProvider,
                         liveConfig.model,
-                        currentImage.url, // Pass original URL for custom
+                        currentImage.url,
                         settings.prompt,
                         settings.duration,
                         currentImage.seed ?? 42,
@@ -1096,8 +1032,6 @@ export default function App() {
                     );
 
                     if (result.taskId) {
-                        // Async: Task created
-                        // Handle 'predict' time if provided (seconds)
                         const nextPollTime = result.predict ? Date.now() + result.predict * 1000 : undefined;
                         const taskedImage = {
                             ...loadingImage,
@@ -1107,7 +1041,6 @@ export default function App() {
                         setCurrentImage(taskedImage);
                         setHistory(prev => prev.map(img => img.id === taskedImage.id ? taskedImage : img));
                     } else if (result.url) {
-                        // Sync: URL returned immediately
                         const successImage = { ...loadingImage, videoStatus: 'success', videoUrl: result.url } as GeneratedImage;
                         setHistory(prev => prev.map(img => img.id === successImage.id ? successImage : img));
                         setCurrentImage(prev => (prev && prev.id === successImage.id) ? successImage : prev);

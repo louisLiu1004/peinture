@@ -30,8 +30,7 @@ import {
 } from 'lucide-react';
 import { Tooltip } from './Tooltip';
 import { editImageQwen } from '../services/hfService';
-import { editImageGitee, optimizePromptGitee } from '../services/giteeService';
-import { editImageMS, optimizePromptMS } from '../services/msService';
+
 import { editImageCustom, optimizePromptCustom } from '../services/customService';
 import { editImageOpenRouter } from '../services/openrouterService';
 import { editImageOpenAICompat } from '../services/openaiCompatService';
@@ -229,27 +228,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                 });
             }
 
-            // Gitee models (only if token exists)
-            if (localStorage.getItem('giteeToken')) {
-                const giteeModels = EDIT_MODELS.filter(m => m.provider === 'gitee');
-                if (giteeModels.length > 0) {
-                    groups.push({
-                        label: 'Gitee AI',
-                        options: giteeModels.map(m => ({ label: m.label, value: m.value }))
-                    });
-                }
-            }
 
-            // ModelScope models (only if token exists)
-            if (localStorage.getItem('msToken')) {
-                const msModels = EDIT_MODELS.filter(m => m.provider === 'modelscope');
-                if (msModels.length > 0) {
-                    groups.push({
-                        label: 'Model Scope',
-                        options: msModels.map(m => ({ label: m.label, value: m.value }))
-                    });
-                }
-            }
 
             // OpenRouter models (only if token exists)
             if (localStorage.getItem('openrouterToken')) {
@@ -999,12 +978,6 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
             if (textConfig.provider === 'huggingface') {
                 // Use optimizeEditPrompt (Vision supported via Pollinations) with dynamic model
                 optimized = await optimizeEditPrompt(base64, command, textConfig.model);
-            } else if (textConfig.provider === 'gitee') {
-                // Use text-only prompt optimization
-                optimized = await optimizePromptGitee(command);
-            } else if (textConfig.provider === 'modelscope') {
-                // Use text-only prompt optimization
-                optimized = await optimizePromptMS(command);
             } else {
                 // Custom Provider
                 const customProviders = getCustomProviders();
@@ -1072,11 +1045,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
             // Use local editModelValue state for immediate switching
             const [activeProvider, activeModel] = editModelValue.split(':');
 
-            if (activeProvider === 'gitee') {
-                result = await editImageGitee(imageBlobs, finalPrompt, width, height, 16, 4, controller.signal);
-            } else if (activeProvider === 'modelscope') {
-                result = await editImageMS(imageBlobs, finalPrompt, width, height, 16, 4, controller.signal);
-            } else if (activeProvider === 'huggingface') {
+            if (activeProvider === 'huggingface') {
                 // Default to HF
                 result = await editImageQwen(imageBlobs, finalPrompt, width, height, 4, 1, controller.signal);
             } else if (activeProvider === 'openrouter') {

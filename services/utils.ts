@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 
 import { CustomProvider, ServiceMode } from "../types";
 
@@ -83,8 +85,6 @@ export const saveTranslationPromptContent = (content: string) => {
 
 export const DEFAULT_OPTIMIZATION_MODELS: Record<string, string> = {
   huggingface: 'openai-fast',
-  gitee: 'deepseek-3_2',
-  modelscope: 'deepseek-3_2',
   openrouter: 'openai/gpt-4o-mini'
 };
 
@@ -220,18 +220,6 @@ export const DEFAULT_VIDEO_SETTINGS: Record<string, VideoSettings> = {
     duration: 3,
     steps: 6,
     guidance: 1
-  },
-  gitee: {
-    prompt: "make this image come alive, cinematic motion, smooth animation",
-    duration: 3,
-    steps: 10,
-    guidance: 4
-  },
-  modelscope: {
-    prompt: "make this image come alive, cinematic motion, smooth animation",
-    duration: 3,
-    steps: 10,
-    guidance: 4
   }
 };
 

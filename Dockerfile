@@ -14,7 +14,7 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build frontend (without API keys - they will be injected at runtime)
+# Build frontend (no sensitive credentials - they are on backend only)
 RUN npm run build
 
 # ========================================

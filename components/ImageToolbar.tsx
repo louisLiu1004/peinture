@@ -6,7 +6,7 @@ import { Tooltip } from './Tooltip';
 import { GeneratedImage, ProviderOption } from '../types';
 import { isStorageConfigured } from '../services/storageService';
 import { getCustomProviders } from '../services/utils';
-import { HF_MODEL_OPTIONS, GITEE_MODEL_OPTIONS, MS_MODEL_OPTIONS } from '../constants';
+import { HF_MODEL_OPTIONS } from '../constants';
 
 interface ImageToolbarProps {
     currentImage: GeneratedImage | null;
@@ -91,12 +91,12 @@ export const ImageToolbar: React.FC<ImageToolbarProps> = ({
     // 2. Live -> Always (supported via cross-provider handling)
     // 3. Upscale -> Always available (now uses Settings config)
     // 4. Upload -> If storage configured
-    
+
     // Live button is now enabled for all images
     const showLiveButton = !isLiveMode; // Only hide if actively viewing the video (replaced by 'Image' button in PreviewStage)
     const showUpscaleButton = !isLiveMode; // Upscale is available unless in video mode
     const showUploadButton = isStorageEnabled;
-    
+
     const isBusy = isLiveGenerating || isGeneratingVideoPrompt;
     // Disable live button if busy (generating) OR if already in Live Mode (viewing video)
     const isLiveDisabled = isBusy || isLiveMode;
@@ -106,7 +106,7 @@ export const ImageToolbar: React.FC<ImageToolbarProps> = ({
         if (providerId === 'gitee') return 'Gitee AI';
         if (providerId === 'modelscope') return 'Model Scope';
         if (providerId === 'huggingface') return 'Hugging Face';
-        
+
         // Check Custom Providers
         const customProviders = getCustomProviders();
         const custom = customProviders.find(p => p.id === providerId);
@@ -115,7 +115,7 @@ export const ImageToolbar: React.FC<ImageToolbarProps> = ({
 
     const getModelLabel = (modelValue: string, providerId?: string) => {
         // First check standard lists
-        const option = [...HF_MODEL_OPTIONS, ...GITEE_MODEL_OPTIONS, ...MS_MODEL_OPTIONS].find(o => o.value === modelValue);
+        const option = [...HF_MODEL_OPTIONS].find(o => o.value === modelValue);
         if (option) return option.label;
 
         // Then check custom provider models if available
@@ -134,7 +134,7 @@ export const ImageToolbar: React.FC<ImageToolbarProps> = ({
                 if (customModel) return customModel.name;
             }
         }
-        
+
         return modelValue;
     };
 
@@ -161,7 +161,7 @@ export const ImageToolbar: React.FC<ImageToolbarProps> = ({
             ) : (
                 /* Standard Toolbar Container */
                 <div className="relative pointer-events-auto">
-                    
+
                     {/* Info Popover (Positioned relative to toolbar) */}
                     {showInfo && (
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-[90vw] md:w-[400px] bg-[#1A1625]/95 backdrop-blur-md border border-white/10 rounded-xl p-5 shadow-2xl text-sm text-white/80 animate-in slide-in-from-bottom-2 fade-in duration-200 z-50">
@@ -334,10 +334,10 @@ export const ImageToolbar: React.FC<ImageToolbarProps> = ({
                                             disabled={isUploading}
                                             className={`
                                                 flex items-center justify-center w-10 h-10 rounded-xl transition-all 
-                                                ${isUploading 
-                                                    ? 'text-green-400 bg-green-500/10 cursor-not-allowed' 
-                                                    : (isUploaded 
-                                                        ? 'text-green-400 bg-green-500/20 border border-green-500/30 shadow-[0_0_10px_-3px_rgba(74,222,128,0.3)] hover:bg-green-500/30' 
+                                                ${isUploading
+                                                    ? 'text-green-400 bg-green-500/10 cursor-not-allowed'
+                                                    : (isUploaded
+                                                        ? 'text-green-400 bg-green-500/20 border border-green-500/30 shadow-[0_0_10px_-3px_rgba(74,222,128,0.3)] hover:bg-green-500/30'
                                                         : 'text-white/70 hover:text-green-400 hover:bg-white/10'
                                                     )
                                                 }

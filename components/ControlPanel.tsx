@@ -6,12 +6,8 @@ import { Settings, ChevronUp, ChevronDown, Minus, Plus, Dices, Cpu } from 'lucid
 import { ModelOption, ProviderOption, AspectRatioOption, ImageSizeOption } from '../types';
 import {
     HF_MODEL_OPTIONS,
-    GITEE_MODEL_OPTIONS,
-    MS_MODEL_OPTIONS,
     OPENROUTER_MODEL_OPTIONS,
     OPENAI_COMPAT_MODEL_OPTIONS,
-    Z_IMAGE_MODELS,
-    FLUX_MODELS,
     getModelConfig,
     getGuidanceScaleConfig,
     getOpenRouterModelConfig,
@@ -79,24 +75,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     label: t.provider_huggingface,
                     options: HF_MODEL_OPTIONS.map(m => ({ label: m.label, value: `huggingface:${m.value}` }))
                 });
-
-                // Gitee (Only if token exists)
-                const hasGiteeToken = localStorage.getItem('giteeToken');
-                if (hasGiteeToken) {
-                    groups.push({
-                        label: t.provider_gitee,
-                        options: GITEE_MODEL_OPTIONS.map(m => ({ label: m.label, value: `gitee:${m.value}` }))
-                    });
-                }
-
-                // Model Scope (Only if token exists)
-                const hasMsToken = localStorage.getItem('msToken');
-                if (hasMsToken) {
-                    groups.push({
-                        label: t.provider_modelscope,
-                        options: MS_MODEL_OPTIONS.map(m => ({ label: m.label, value: `modelscope:${m.value}` }))
-                    });
-                }
 
                 // OpenRouter (Only if token exists)
                 const hasOpenRouterToken = localStorage.getItem('openrouterToken');
