@@ -80,7 +80,7 @@ export const PreviewStage: React.FC<PreviewStageProps> = ({
     // Render batch grid during generation or when viewing batch results
     const renderBatchGrid = () => {
         return (
-            <div className={`w-full h-full grid ${getGridClass()} gap-2 p-2`}>
+            <div className={`w-full h-full grid ${getGridClass()} gap-1 p-1`}>
                 {Array.from({ length: batchCount }).map((_, index) => {
                     const image = batchImages[index];
                     const progress = batchProgress[index];
@@ -89,16 +89,18 @@ export const PreviewStage: React.FC<PreviewStageProps> = ({
                     return (
                         <div
                             key={index}
-                            className={`relative flex items-center justify-center bg-black/90 rounded-lg overflow-hidden cursor-pointer transition-all ${
-                                isSelected ? 'ring-2 ring-purple-500 ring-offset-2 ring-offset-black/40' : 'hover:ring-1 hover:ring-white/30'
-                            }`}
+                            className={`relative flex items-center justify-center rounded-lg overflow-hidden cursor-pointer transition-all ${progress?.status === 'loading'
+                                    ? 'bg-black/40 backdrop-blur-sm ring-1 ring-purple-500/60 shadow-lg shadow-purple-500/20'
+                                    : `bg-black/90 ${isSelected ? 'ring-2 ring-purple-500 ring-offset-2 ring-offset-black/40' : 'hover:ring-1 hover:ring-white/30'}`
+                                }`}
                             onClick={() => image && onBatchImageSelect?.(index)}
                         >
                             {/* Loading State */}
                             {progress?.status === 'loading' && (
-                                <div className="flex flex-col items-center justify-center gap-2">
-                                    <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
-                                    <span className="text-xs text-white/60">{t.generating || 'Generating'}...</span>
+                                <div className="flex flex-col items-center justify-center gap-3">
+                                    <Loader2 className="w-10 h-10 text-purple-400 animate-spin" />
+                                    <span className="text-sm text-white/80">{t.generating || 'Generating'}...</span>
+                                    <span className="font-mono text-purple-300 text-sm">{elapsedTime.toFixed(1)}s</span>
                                 </div>
                             )}
 
@@ -139,16 +141,21 @@ export const PreviewStage: React.FC<PreviewStageProps> = ({
     return (
         <section className="relative w-full flex flex-col h-[360px] md:h-[480px] items-center justify-center bg-black/20 rounded-xl backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/20 overflow-hidden relative group">
 
+            {/* Background blur effect when generating */}
+            {isWorking && currentImage && (
+                <div className="absolute inset-0 z-0">
+                    <img
+                        src={currentImage.url}
+                        alt=""
+                        className="w-full h-full object-cover blur-3xl opacity-40"
+                    />
+                </div>
+            )}
+
             {/* Batch Generation Mode */}
             {isGenerating ? (
                 <div className="absolute inset-0 z-10 animate-in fade-in duration-500">
                     {renderBatchGrid()}
-                    {/* Overlay with timer */}
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/60 backdrop-blur px-4 py-2 rounded-full border border-white/10">
-                        <Paintbrush className="text-purple-400 animate-pulse w-4 h-4" />
-                        <span className="text-white/80 text-sm">{t.dreaming}</span>
-                        <span className="font-mono text-purple-300 text-sm">{elapsedTime.toFixed(1)}s</span>
-                    </div>
                 </div>
             ) : isWorking ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-black/90 backdrop-blur-sm animate-in fade-in duration-500">
@@ -169,7 +176,7 @@ export const PreviewStage: React.FC<PreviewStageProps> = ({
 
             {error ? (
                 <div className="text-center text-red-400 p-8 max-w-md animate-in zoom-in-95 duration-300 relative group/error">
-                    <button 
+                    <button
                         onClick={onCloseError}
                         className="absolute -top-2 -right-2 p-2 text-white/40 hover:text-white rounded-full hover:bg-white/10 transition-colors"
                         title={t.close}
@@ -241,11 +248,11 @@ export const PreviewStage: React.FC<PreviewStageProps> = ({
                             {isGeneratingVideoPrompt ? t.liveGeneratingDesc : t.liveGenerating}
                         </div>
                     )}
-                    
+
                     {/* Live/Image Toggle Button (Top Right, persistent if video exists) */}
                     {currentImage.videoStatus === 'success' && currentImage.videoUrl && !isComparing && (
-                         <div className="absolute top-4 right-4 z-20">
-                             <button
+                        <div className="absolute top-4 right-4 z-20">
+                            <button
                                 onClick={onToggleLiveMode}
                                 className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur border border-white/20 text-white/90 hover:bg-white/10 transition-all shadow-lg active:scale-95"
                             >
@@ -261,7 +268,7 @@ export const PreviewStage: React.FC<PreviewStageProps> = ({
                                     </>
                                 )}
                             </button>
-                         </div>
+                        </div>
                     )}
 
                     {children}
