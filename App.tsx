@@ -66,7 +66,10 @@ export default function App() {
         { value: '2:3', label: t.ar_landscape_2_3 },
     ];
 
-    const [prompt, setPrompt] = useState<string>('');
+    const [prompt, setPrompt] = useState<string>(() => {
+        if (typeof localStorage === 'undefined') return '';
+        return localStorage.getItem('app_prompt') || '';
+    });
 
     // --- Persistence Logic Start ---
 
@@ -113,13 +116,33 @@ export default function App() {
         localStorage.setItem('app_aspect_ratio', aspectRatio);
     }, [aspectRatio]);
 
-    // --- Persistence Logic End ---
+    useEffect(() => {
+        localStorage.setItem('app_prompt', prompt);
+    }, [prompt]);
 
     const [seed, setSeed] = useState<string>('');
     const [steps, setSteps] = useState<number>(9);
     const [guidanceScale, setGuidanceScale] = useState<number>(3.5);
-    const [imageSize, setImageSize] = useState<ImageSizeOption>('1K');
-    const [batchCount, setBatchCount] = useState<number>(1);
+    const [imageSize, setImageSize] = useState<ImageSizeOption>(() => {
+        if (typeof localStorage === 'undefined') return '2K';
+        const saved = localStorage.getItem('app_image_size') as ImageSizeOption;
+        return saved || '2K';
+    });
+    const [batchCount, setBatchCount] = useState<number>(() => {
+        if (typeof localStorage === 'undefined') return 1;
+        const saved = localStorage.getItem('app_batch_count');
+        return saved ? parseInt(saved, 10) : 1;
+    });
+
+    useEffect(() => {
+        localStorage.setItem('app_image_size', imageSize);
+    }, [imageSize]);
+
+    useEffect(() => {
+        localStorage.setItem('app_batch_count', batchCount.toString());
+    }, [batchCount]);
+
+    // --- Persistence Logic End ---
     const [autoTranslate, setAutoTranslate] = useState<boolean>(false);
 
     const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -145,6 +168,8 @@ export default function App() {
     const [batchImages, setBatchImages] = useState<(GeneratedImage | null)[]>([]);
     const [batchProgress, setBatchProgress] = useState<{ status: 'idle' | 'loading' | 'success' | 'error'; error?: string }[]>([]);
     const [selectedBatchIndex, setSelectedBatchIndex] = useState<number | null>(null);
+    // Locked batch count during generation - prevents UI changes while generating
+    const [activeBatchCount, setActiveBatchCount] = useState<number>(1);
 
     // Password Modal State
     const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -568,6 +593,9 @@ export default function App() {
         setIsComparing(false);
         setTempUpscaledImage(null);
         setIsLiveMode(false);
+
+        // Lock current batch count for this generation session
+        setActiveBatchCount(batchCount);
 
         // Reset batch state
         setBatchImages(Array(batchCount).fill(null));
@@ -1338,7 +1366,7 @@ export default function App() {
                                     t={t}
                                     isLiveMode={isLiveMode}
                                     onToggleLiveMode={() => setIsLiveMode(!isLiveMode)}
-                                    batchCount={batchCount}
+                                    batchCount={activeBatchCount}
                                     batchImages={batchImages}
                                     batchProgress={batchProgress}
                                     selectedBatchIndex={selectedBatchIndex}
