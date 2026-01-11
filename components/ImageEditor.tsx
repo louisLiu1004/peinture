@@ -1,16 +1,16 @@
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { 
-    Hand, 
-    Brush, 
-    Eraser, 
-    Square, 
-    Undo2, 
-    ImagePlus, 
-    Sparkles, 
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import {
+    Hand,
+    Brush,
+    Eraser,
+    Square,
+    Undo2,
+    ImagePlus,
+    Sparkles,
     ArrowRight,
     Upload,
-    X, 
+    X,
     LogOut,
     Keyboard,
     Minus,
@@ -34,10 +34,10 @@ import { editImageGitee, optimizePromptGitee } from '../services/giteeService';
 import { editImageMS, optimizePromptMS } from '../services/msService';
 import { editImageCustom, optimizePromptCustom } from '../services/customService';
 import { editImageOpenRouter } from '../services/openrouterService';
-import { optimizeEditPrompt, getEditModelConfig, getCustomProviders, fetchBlob, downloadImage, getTextModelConfig } from '../services/utils';
+import { optimizeEditPrompt, getEditModelConfig, saveEditModelConfig, getCustomProviders, fetchBlob, downloadImage, getTextModelConfig, getServiceMode } from '../services/utils';
 import { isStorageConfigured, listCloudFiles, fetchCloudBlob, getStorageType } from '../services/storageService';
 import { ProviderOption, GeneratedImage, CloudFile } from '../types';
-import { PROVIDER_OPTIONS } from '../constants';
+import { PROVIDER_OPTIONS, EDIT_MODELS, UnifiedModelOption } from '../constants';
 import { ImageComparison } from './ImageComparison';
 
 interface ImageEditorProps {
@@ -59,7 +59,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
     const fileInputRef = useRef<HTMLInputElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
     const activeObjectUrlRef = useRef<string | null>(null);
-    
+
     // Core State
     const [image, setImage] = useState<HTMLImageElement | null>(null);
     const [historyStates, setHistoryStates] = useState<ImageData[]>([]);
@@ -75,10 +75,10 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
     const [generatedResult, setGeneratedResult] = useState<string | null>(null);
     const [elapsedTime, setElapsedTime] = useState(0);
     const [isOptimizing, setIsOptimizing] = useState(false);
-    
+
     // NSFW State
     const [isSourceNSFW, setIsSourceNSFW] = useState(false);
-    
+
     // Gallery State
     const [galleryFiles, setGalleryFiles] = useState<CloudFile[]>([]);
     const [galleryLoading, setGalleryLoading] = useState(false);
@@ -128,7 +128,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
     // WebDAV Preloading Logic for Gallery Modal (Consistent with CloudGallery)
     useEffect(() => {
         if (!showGalleryModal || getStorageType() !== 'webdav') return;
-        
+
         let isCancelled = false;
         const visibleFiles = galleryFiles.slice(0, galleryLimit);
 
@@ -183,7 +183,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
     // Tool State
     const [activeTool, setActiveTool] = useState<ToolType>('move');
     const [systemColor, setSystemColor] = useState<string>('#60A5FA'); // Default Light Blue (blue-400)
-    
+
     // Transform State
     const [scale, setScale] = useState<number>(1);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -191,7 +191,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
     const [isDrawing, setIsDrawing] = useState(false);
     const [lastPosition, setLastPosition] = useState({ x: 0, y: 0 });
     const [startPosition, setStartPosition] = useState({ x: 0, y: 0 });
-    
+
     // Touch Zoom State
     const lastTouchDistance = useRef<number | null>(null);
 
@@ -199,9 +199,116 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
     const [command, setCommand] = useState('');
     const [attachedImages, setAttachedImages] = useState<string[]>([]);
 
+    // Edit Model Selector State
+    const [editModelValue, setEditModelValue] = useState<string>('');
+    const [showModelDropdown, setShowModelDropdown] = useState(false);
+
+    // Initialize edit model from config
+    useEffect(() => {
+        const config = getEditModelConfig();
+        setEditModelValue(`${config.provider}:${config.model}`);
+    }, []);
+
+    // Build available edit models grouped by provider
+    const groupedEditModels = useMemo(() => {
+        const serviceMode = getServiceMode();
+        const isLocal = serviceMode === 'local' || serviceMode === 'hydration';
+        const isServer = serviceMode === 'server' || serviceMode === 'hydration';
+
+        const groups: { label: string; options: { label: string; value: string }[] }[] = [];
+
+        // Base models (when local or hydration)
+        if (isLocal) {
+            // HF models always available
+            const hfModels = EDIT_MODELS.filter(m => m.provider === 'huggingface');
+            if (hfModels.length > 0) {
+                groups.push({
+                    label: 'Hugging Face',
+                    options: hfModels.map(m => ({ label: m.label, value: m.value }))
+                });
+            }
+
+            // Gitee models (only if token exists)
+            if (localStorage.getItem('giteeToken')) {
+                const giteeModels = EDIT_MODELS.filter(m => m.provider === 'gitee');
+                if (giteeModels.length > 0) {
+                    groups.push({
+                        label: 'Gitee AI',
+                        options: giteeModels.map(m => ({ label: m.label, value: m.value }))
+                    });
+                }
+            }
+
+            // ModelScope models (only if token exists)
+            if (localStorage.getItem('msToken')) {
+                const msModels = EDIT_MODELS.filter(m => m.provider === 'modelscope');
+                if (msModels.length > 0) {
+                    groups.push({
+                        label: 'Model Scope',
+                        options: msModels.map(m => ({ label: m.label, value: m.value }))
+                    });
+                }
+            }
+
+            // OpenRouter models (only if token exists)
+            if (localStorage.getItem('openrouterToken')) {
+                const openRouterModels = EDIT_MODELS.filter(m => m.provider === 'openrouter');
+                if (openRouterModels.length > 0) {
+                    groups.push({
+                        label: 'OpenRouter',
+                        options: openRouterModels.map(m => ({ label: m.label, value: m.value }))
+                    });
+                }
+            }
+        }
+
+        // Custom provider models (when server or hydration)
+        if (isServer) {
+            const customProviders = getCustomProviders();
+            customProviders.forEach(cp => {
+                const editModels = cp.models.edit;
+                if (editModels && editModels.length > 0) {
+                    groups.push({
+                        label: cp.name,
+                        options: editModels.map(m => ({
+                            label: m.name,
+                            value: `${cp.id}:${m.id}`
+                        }))
+                    });
+                }
+            });
+        }
+
+        return groups;
+    }, []);
+
+    // Flatten for counting and searching
+    const allEditModels = useMemo(() => {
+        return groupedEditModels.flatMap(g => g.options);
+    }, [groupedEditModels]);
+
+    // Get display name for current model
+    const currentModelLabel = useMemo(() => {
+        const found = allEditModels.find(m => m.value === editModelValue);
+        if (found) return found.label;
+        // Fallback: parse from value
+        const parts = editModelValue.split(':');
+        return parts.length > 1 ? parts[1] : editModelValue;
+    }, [editModelValue, allEditModels]);
+
+    // Handle model change
+    const handleEditModelChange = (value: string) => {
+        setEditModelValue(value);
+        saveEditModelConfig(value);
+        // Update provider for compatibility
+        const [newProvider] = value.split(':');
+        setProvider(newProvider as ProviderOption);
+        setShowModelDropdown(false);
+    };
+
     // Determine Platform for Shortcuts
     const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-    const MOD_KEY = isMac ? 'Cmd' : 'Alt'; 
+    const MOD_KEY = isMac ? 'Cmd' : 'Alt';
 
     // Timer Logic
     useEffect(() => {
@@ -234,7 +341,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
     };
 
     // --- History Management ---
-    
+
     const saveToHistory = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
         const imageData = ctx.getImageData(0, 0, width, height);
         const newHistory = historyStates.slice(0, historyIndex + 1);
@@ -272,7 +379,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
     const processFile = useCallback((file: File) => {
         if (!file.type.startsWith('image/')) return;
         setIsSourceNSFW(file.name.toUpperCase().includes('.NSFW'));
-        
+
         // Cleanup previous Blob URL if exists
         cleanupActiveObjectUrl();
 
@@ -285,24 +392,24 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
             setImage(img);
             setGeneratedResult(null);
             if (canvasRef.current && containerRef.current) {
-                 canvasRef.current.width = img.width;
-                 canvasRef.current.height = img.height;
-                 const ctx = canvasRef.current.getContext('2d');
-                 if (ctx) {
-                     ctx.clearRect(0, 0, img.width, img.height);
-                     const initialData = ctx.getImageData(0, 0, img.width, img.height);
-                     setHistoryStates([initialData]); 
-                     setHistoryIndex(0);
-                 }
-                 const { width: contW, height: contH } = containerRef.current.getBoundingClientRect();
-                 const scaleH = contH / img.height;
-                 const scaleW = contW / img.width;
-                 const newScale = Math.min(scaleH, scaleW, 1);
-                 setScale(newScale);
-                 setOffset({
-                     x: (contW - img.width * newScale) / 2,
-                     y: (contH - img.height * newScale) / 2
-                 });
+                canvasRef.current.width = img.width;
+                canvasRef.current.height = img.height;
+                const ctx = canvasRef.current.getContext('2d');
+                if (ctx) {
+                    ctx.clearRect(0, 0, img.width, img.height);
+                    const initialData = ctx.getImageData(0, 0, img.width, img.height);
+                    setHistoryStates([initialData]);
+                    setHistoryIndex(0);
+                }
+                const { width: contW, height: contH } = containerRef.current.getBoundingClientRect();
+                const scaleH = contH / img.height;
+                const scaleW = contW / img.width;
+                const newScale = Math.min(scaleH, scaleW, 1);
+                setScale(newScale);
+                setOffset({
+                    x: (contW - img.width * newScale) / 2,
+                    y: (contH - img.height * newScale) / 2
+                });
             }
         };
         img.onerror = () => {
@@ -323,46 +430,46 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
         try {
             // Use unified fetchBlob to handle potential CORS issues via proxy fallback
             const blob = await fetchBlob(url);
-            
+
             // Cleanup previous active URL
             cleanupActiveObjectUrl();
 
             const objectUrl = URL.createObjectURL(blob);
             activeObjectUrlRef.current = objectUrl;
-            
+
             const img = new Image();
             // Removed crossOrigin = 'anonymous' for blob URLs created locally to prevent loading issues
-            
+
             img.onload = () => {
                 setImage(img);
                 setGeneratedResult(null);
                 setCommand('');
                 setAttachedImages([]);
                 if (canvasRef.current && containerRef.current) {
-                     canvasRef.current.width = img.width;
-                     canvasRef.current.height = img.height;
-                     const ctx = canvasRef.current.getContext('2d');
-                     if (ctx) {
-                         ctx.clearRect(0, 0, img.width, img.height);
-                         try {
+                    canvasRef.current.width = img.width;
+                    canvasRef.current.height = img.height;
+                    const ctx = canvasRef.current.getContext('2d');
+                    if (ctx) {
+                        ctx.clearRect(0, 0, img.width, img.height);
+                        try {
                             const initialData = ctx.getImageData(0, 0, img.width, img.height);
-                            setHistoryStates([initialData]); 
+                            setHistoryStates([initialData]);
                             setHistoryIndex(0);
-                         } catch (e: any) {
+                        } catch (e: any) {
                             console.error("Failed to read image data (CORS restriction):");
                             setHistoryStates([]);
                             setHistoryIndex(-1);
-                         }
-                     }
-                     const { width: contW, height: contH } = containerRef.current.getBoundingClientRect();
-                     const scaleH = contH / img.height;
-                     const scaleW = contW / img.width;
-                     const newScale = Math.min(scaleH, scaleW, 1);
-                     setScale(newScale);
-                     setOffset({
-                         x: (contW - img.width * newScale) / 2,
-                         y: (contH - img.height * newScale) / 2
-                     });
+                        }
+                    }
+                    const { width: contW, height: contH } = containerRef.current.getBoundingClientRect();
+                    const scaleH = contH / img.height;
+                    const scaleW = contW / img.width;
+                    const newScale = Math.min(scaleH, scaleW, 1);
+                    setScale(newScale);
+                    setOffset({
+                        x: (contW - img.width * newScale) / 2,
+                        y: (contH - img.height * newScale) / 2
+                    });
                 }
                 // Do NOT revoke object URL immediately to allow React render to use it
             };
@@ -420,15 +527,15 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
 
     const zoomReset = useCallback(() => {
         if (image && containerRef.current) {
-             const { width: contW, height: contH } = containerRef.current.getBoundingClientRect();
-             const scaleH = contH / image.height;
-             const scaleW = contW / image.width;
-             const newScale = Math.min(scaleH, scaleW, 1);
-             setScale(newScale);
-             setOffset({
-                 x: (contW - image.width * newScale) / 2,
-                 y: (contH - image.height * newScale) / 2
-             });
+            const { width: contW, height: contH } = containerRef.current.getBoundingClientRect();
+            const scaleH = contH / image.height;
+            const scaleW = contW / image.width;
+            const newScale = Math.min(scaleH, scaleW, 1);
+            setScale(newScale);
+            setOffset({
+                x: (contW - image.width * newScale) / 2,
+                y: (contH - image.height * newScale) / 2
+            });
         } else {
             setScale(1);
             setOffset({ x: 0, y: 0 });
@@ -447,8 +554,8 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
     };
 
     const handleWheel = useCallback((e: WheelEvent) => {
-        e.preventDefault(); 
-        e.stopPropagation(); 
+        e.preventDefault();
+        e.stopPropagation();
         if (!containerRef.current) return;
         const rect = containerRef.current.getBoundingClientRect();
         const cx = rect.width / 2;
@@ -496,7 +603,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
             }
             const key = e.key.toLowerCase();
             if (isMod) {
-                switch(key) {
+                switch (key) {
                     case '0':
                         e.preventDefault();
                         zoomReset();
@@ -507,8 +614,8 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                         else handleUndo();
                         break;
                 }
-            } 
-            switch(e.key) {
+            }
+            switch (e.key) {
                 case '+':
                 case '=':
                     if (!isMod) { e.preventDefault(); zoomIn(); }
@@ -540,12 +647,12 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                 case 'c':
                 case 'C':
                 case '5':
-                     if (!isMod) {
+                    if (!isMod) {
                         e.preventDefault();
                         const colorInput = document.getElementById('editor-color-picker');
                         if (colorInput) (colorInput as HTMLElement).click();
-                     }
-                     break;
+                    }
+                    break;
             }
         };
         window.addEventListener('keydown', handleKeyDown);
@@ -619,13 +726,13 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
             ctx.lineJoin = 'round';
             if (activeTool === 'brush') {
                 ctx.globalCompositeOperation = 'source-over';
-                ctx.lineWidth = getDynamicLineWidth(2); 
+                ctx.lineWidth = getDynamicLineWidth(2);
                 ctx.strokeStyle = systemColor;
                 ctx.beginPath();
                 ctx.moveTo(coords.x, coords.y);
             } else if (activeTool === 'eraser') {
                 ctx.globalCompositeOperation = 'destination-out';
-                ctx.lineWidth = getDynamicLineWidth(16); 
+                ctx.lineWidth = getDynamicLineWidth(16);
                 ctx.beginPath();
                 ctx.moveTo(coords.x, coords.y);
             } else if (activeTool === 'rect') {
@@ -648,18 +755,18 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
             setOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
             setLastPosition({ x: clientX, y: clientY });
         } else if (isDrawing) {
-             const ctx = canvasRef.current.getContext('2d');
-             if (!ctx) return;
-             const coords = getCanvasCoordinates(e);
-             if (['brush', 'eraser'].includes(activeTool)) {
-                 ctx.lineTo(coords.x, coords.y);
-                 ctx.stroke();
-             } else if (activeTool === 'rect' && snapshotRef.current) {
-                 ctx.putImageData(snapshotRef.current, 0, 0);
-                 const width = coords.x - startPosition.x;
-                 const height = coords.y - startPosition.y;
-                 ctx.strokeRect(startPosition.x, startPosition.y, width, height);
-             }
+            const ctx = canvasRef.current.getContext('2d');
+            if (!ctx) return;
+            const coords = getCanvasCoordinates(e);
+            if (['brush', 'eraser'].includes(activeTool)) {
+                ctx.lineTo(coords.x, coords.y);
+                ctx.stroke();
+            } else if (activeTool === 'rect' && snapshotRef.current) {
+                ctx.putImageData(snapshotRef.current, 0, 0);
+                const width = coords.x - startPosition.x;
+                const height = coords.y - startPosition.y;
+                ctx.strokeRect(startPosition.x, startPosition.y, width, height);
+            }
         }
     };
 
@@ -671,9 +778,9 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
             const ctx = canvasRef.current?.getContext('2d');
             if (ctx && canvasRef.current) {
                 if (['brush', 'eraser'].includes(activeTool)) {
-                     ctx.closePath();
+                    ctx.closePath();
                 }
-                ctx.globalCompositeOperation = 'source-over'; 
+                ctx.globalCompositeOperation = 'source-over';
                 saveToHistory(ctx, canvasRef.current.width, canvasRef.current.height);
                 snapshotRef.current = null;
             }
@@ -738,10 +845,10 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
         const bstr = atob(arr[1]);
         let n = bstr.length;
         const u8arr = new Uint8Array(n);
-        while(n--){
+        while (n--) {
             u8arr[n] = bstr.charCodeAt(n);
         }
-        return new Blob([u8arr], {type:mime});
+        return new Blob([u8arr], { type: mime });
     };
 
     const scaleToConstraints = (w: number, h: number, maxVal: number = 2048) => {
@@ -799,12 +906,12 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
     const handleDownloadResult = async (url: string) => {
         setIsDownloading(true);
         let fileName = `edited_image_${Date.now()}`;
-        
+
         try {
             // Filename prep
             let base = fileName;
             let ext = '.png';
-            
+
             // Check original URL/Blob for details if possible, but unified logic suggests standard download
             if (isSourceNSFW && !base.toUpperCase().endsWith('.NSFW')) {
                 base += '.NSFW';
@@ -834,7 +941,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                 model: 'Qwen-Image-Edit',
                 timestamp: Date.now()
             };
-            
+
             // Generate a filename based on timestamp if none
             let fileName = `edited-${Date.now()}`;
             if (isSourceNSFW) {
@@ -868,35 +975,35 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
             tempCanvas.width = w;
             tempCanvas.height = h;
             const ctx = tempCanvas.getContext('2d');
-            if(ctx) {
+            if (ctx) {
                 ctx.drawImage(mergedCanvas, 0, 0, w, h);
             }
-            const base64 = tempCanvas.toDataURL('image/jpeg', 0.8); 
-            
+            const base64 = tempCanvas.toDataURL('image/jpeg', 0.8);
+
             // NEW LOGIC: Dispatch optimization based on Text Model setting
             const textConfig = getTextModelConfig();
             let optimized = '';
 
             if (textConfig.provider === 'huggingface') {
-                 // Use optimizeEditPrompt (Vision supported via Pollinations) with dynamic model
-                 optimized = await optimizeEditPrompt(base64, command, textConfig.model);
+                // Use optimizeEditPrompt (Vision supported via Pollinations) with dynamic model
+                optimized = await optimizeEditPrompt(base64, command, textConfig.model);
             } else if (textConfig.provider === 'gitee') {
-                 // Use text-only prompt optimization
-                 optimized = await optimizePromptGitee(command);
+                // Use text-only prompt optimization
+                optimized = await optimizePromptGitee(command);
             } else if (textConfig.provider === 'modelscope') {
-                 // Use text-only prompt optimization
-                 optimized = await optimizePromptMS(command);
+                // Use text-only prompt optimization
+                optimized = await optimizePromptMS(command);
             } else {
-                 // Custom Provider
-                 const customProviders = getCustomProviders();
-                 const activeCustom = customProviders.find(p => p.id === textConfig.provider);
-                 if (activeCustom) {
-                     // Custom optimization (usually text-only)
-                     optimized = await optimizePromptCustom(activeCustom, textConfig.model, command);
-                 } else {
-                     // Fallback to default Pollinations
-                     optimized = await optimizeEditPrompt(base64, command);
-                 }
+                // Custom Provider
+                const customProviders = getCustomProviders();
+                const activeCustom = customProviders.find(p => p.id === textConfig.provider);
+                if (activeCustom) {
+                    // Custom optimization (usually text-only)
+                    optimized = await optimizePromptCustom(activeCustom, textConfig.model, command);
+                } else {
+                    // Fallback to default Pollinations
+                    optimized = await optimizeEditPrompt(base64, command);
+                }
             }
 
             if (optimized) setCommand(optimized);
@@ -918,7 +1025,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
         setIsGenerating(true);
         const controller = new AbortController();
         abortControllerRef.current = controller;
-        try {        
+        try {
             const maxDimension = 2048;
             const { width, height } = scaleToConstraints(image.naturalWidth, image.naturalHeight, maxDimension);
             const hasDrawings = historyIndex > 0;
@@ -950,9 +1057,8 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
             const finalPrompt = command + promptSuffix;
             let result;
 
-            // Get Configured Edit Model
-            const config = getEditModelConfig(); // { provider, model }
-            const activeProvider = config.provider;
+            // Use local editModelValue state for immediate switching
+            const [activeProvider, activeModel] = editModelValue.split(':');
 
             if (activeProvider === 'gitee') {
                 result = await editImageGitee(imageBlobs, finalPrompt, width, height, 16, 4, controller.signal);
@@ -963,14 +1069,14 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                 result = await editImageQwen(imageBlobs, finalPrompt, width, height, 4, 1, controller.signal);
             } else if (activeProvider === 'openrouter') {
                 // OpenRouter (Gemini models)
-                result = await editImageOpenRouter(config.model, imageBlobs, finalPrompt, controller.signal);
+                result = await editImageOpenRouter(activeModel, imageBlobs, finalPrompt, controller.signal);
             } else {
                 // Custom Provider
                 const customProviders = getCustomProviders();
                 const activeCustom = customProviders.find(p => p.id === activeProvider);
                 if (activeCustom) {
                     // Explicitly pass config.model
-                    result = await editImageCustom(activeCustom, config.model, imageBlobs, finalPrompt, undefined, undefined, undefined);
+                    result = await editImageCustom(activeCustom, activeModel, imageBlobs, finalPrompt, undefined, undefined, undefined);
                 } else {
                     // Fallback to HF if config is stale
                     result = await editImageQwen(imageBlobs, finalPrompt, width, height, 4, 1, controller.signal);
@@ -1016,7 +1122,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
         { label: t.sc_draw, combos: [['D'], ['1']] },
         { label: t.sc_rect, combos: [['R'], ['2']] },
         { label: t.sc_eraser, combos: [['E'], ['3']] },
-        { label: t.sc_undo, combos: [[MOD_KEY, 'Z']] }, 
+        { label: t.sc_undo, combos: [[MOD_KEY, 'Z']] },
         { label: t.sc_redo, combos: [[MOD_KEY, 'Shift', 'Z']] },
         { label: t.sc_color, combos: [['C'], ['5']] },
         { label: t.sc_exit, combos: [['ESC']] },
@@ -1028,11 +1134,11 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
     return (
         <div className="w-full h-full flex flex-grow flex-col md:max-w-7xl md:mx-auto relative animate-in fade-in duration-300">
             {/* Main Editor Area */}
-            <div 
+            <div
                 ref={containerRef}
                 onContextMenu={handleContextMenu}
                 className="flex-1 w-full relative overflow-hidden bg-[#0D0B14] cursor-crosshair rounded-none border-none md:rounded-xl md:border md:border-white/5"
-                style={{ 
+                style={{
                     backgroundImage: 'radial-gradient(circle, #333 1px, transparent 1px)',
                     backgroundSize: '20px 20px'
                 }}
@@ -1055,26 +1161,25 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                 )}
 
                 {!image && (
-                    <div  className="absolute z-40 inset-0 flex flex-col items-center justify-center p-6 md:p-12">
+                    <div className="absolute z-40 inset-0 flex flex-col items-center justify-center p-6 md:p-12">
                         <div className="w-full max-w-lg space-y-4">
-                            
+
                             {/* Provider selection dropdown removed */}
 
                             <label
-                                className={`cursor-pointer group flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-xl transition-all duration-300 animate-in zoom-in-95 ${
-                                    isDragOver 
-                                    ? 'border-purple-500 bg-purple-500/10 scale-105' 
+                                className={`cursor-pointer group flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-xl transition-all duration-300 animate-in zoom-in-95 ${isDragOver
+                                    ? 'border-purple-500 bg-purple-500/10 scale-105'
                                     : 'border-white/20 bg-white/[0.02] hover:bg-white/[0.05] hover:border-purple-500/50'
-                                }`}
+                                    }`}
                                 onDragOver={handleDragOver}
                                 onDragLeave={handleDragLeave}
                                 onDrop={handleDrop}
                             >
-                                <input 
+                                <input
                                     ref={fileInputRef}
-                                    type="file" 
-                                    accept=".jpg,.jpeg,.png,.webp" 
-                                    className="hidden" 
+                                    type="file"
+                                    accept=".jpg,.jpeg,.png,.webp"
+                                    className="hidden"
                                     onChange={handleImageUpload}
                                 />
                                 <div className="mb-6 p-5 rounded-full bg-white/5 group-hover:bg-purple-500/20 group-hover:scale-110 transition-all duration-300 shadow-lg">
@@ -1110,7 +1215,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                 )}
 
                 {/* Rest of the component logic remains unchanged */}
-                <div 
+                <div
                     className={`absolute inset-0 origin-top-left touch-none transition-opacity duration-300 ${image ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                     style={{
                         transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
@@ -1122,38 +1227,38 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                     onTouchStart={handleTouchStart}
                     onTouchMove={handleTouchMove}
                     onTouchEnd={handleMouseUp}
-                    // onWheel logic removed from here, handled via ref
+                // onWheel logic removed from here, handled via ref
                 >
                     {image && (
-                        <img 
-                            src={image.src} 
+                        <img
+                            src={image.src}
                             alt="Background Layer"
                             className="absolute top-0 left-0 pointer-events-none select-none shadow-2xl"
                             style={{ width: image.width, height: image.height, maxWidth: 'none' }}
                             draggable={false}
                         />
                     )}
-                    <canvas 
+                    <canvas
                         ref={canvasRef}
                         className={`relative z-10 ${activeTool === 'move' ? 'cursor-grab active:cursor-grabbing' : (activeTool === 'select' ? 'cursor-default' : 'cursor-crosshair')}`}
                     />
                 </div>
-                
+
                 {generatedResult && image && (
                     <div className="absolute inset-0 z-50 bg-[#0D0B14] animate-in fade-in duration-300">
                         <div className="relative w-full h-full overflow-hidden">
-                             <ImageComparison 
-                                beforeImage={image.src} 
-                                afterImage={generatedResult} 
-                                alt="Comparison" 
-                                labelBefore={t.compare_original} 
+                            <ImageComparison
+                                beforeImage={image.src}
+                                afterImage={generatedResult}
+                                alt="Comparison"
+                                labelBefore={t.compare_original}
                                 labelAfter={t.compare_edited}
-                             />
-                             
-                             <div className="absolute bottom-6 inset-x-0 flex justify-center pointer-events-none z-40">
+                            />
+
+                            <div className="absolute bottom-6 inset-x-0 flex justify-center pointer-events-none z-40">
                                 <div className="pointer-events-auto max-w-[90%] overflow-x-auto scrollbar-hide rounded-2xl bg-black/60 backdrop-blur-md border border-white/10 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
                                     <div className="flex items-center gap-1 p-1.5 min-w-max">
-                                        
+
                                         {/* Re-edit */}
                                         <Tooltip content={t.re_edit}>
                                             <button
@@ -1214,7 +1319,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                                         </Tooltip>
                                     </div>
                                 </div>
-                             </div>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -1222,25 +1327,25 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                 {contextMenu && (
                     <>
                         <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
-                        <div 
+                        <div
                             className="fixed z-50 min-w-[160px] bg-black/60 backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl p-1 animate-in fade-in zoom-in-95 duration-150"
                             style={{ left: contextMenu.x, top: contextMenu.y }}
                         >
-                            <button 
+                            <button
                                 onClick={() => { setContextMenu(null); fileInputRef.current?.click(); }}
                                 className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-white hover:bg-white/10 rounded-lg transition-colors text-left group"
                             >
                                 <ImageIcon className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
                                 {t.menu_replace}
                             </button>
-                            <button 
+                            <button
                                 onClick={handleCenterView}
                                 className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-white hover:bg-white/10 rounded-lg transition-colors text-left group"
                             >
                                 <AlignCenter className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" />
                                 {t.menu_center}
                             </button>
-                            <button 
+                            <button
                                 onClick={handleDownloadExport}
                                 className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-white hover:bg-white/10 rounded-lg transition-colors text-left group"
                             >
@@ -1248,7 +1353,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                                 {t.menu_download}
                             </button>
                             <div className="h-px bg-white/10 my-1 mx-1" />
-                            <button 
+                            <button
                                 onClick={() => { setContextMenu(null); setShowExitDialog(true); }}
                                 className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 rounded-lg transition-colors text-left group"
                             >
@@ -1262,16 +1367,16 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                 {image && (
                     <div className="absolute bottom-6 left-6 hidden md:flex items-center gap-1 bg-black/60 backdrop-blur-md border border-white/10 rounded-full text-white/70 shadow-lg z-20">
                         <Tooltip content={t.sc_zoom_out}>
-                            <button 
+                            <button
                                 onClick={zoomOut}
                                 className="p-2 hover:bg-white/10 hover:text-white transition-colors rounded-s-full"
                             >
                                 <Minus className="w-4 h-4" />
                             </button>
                         </Tooltip>
-                        
+
                         <Tooltip content={t.sc_reset_view}>
-                            <button 
+                            <button
                                 onClick={zoomReset}
                                 className="p-2 text-xs font-mono min-w-[3rem] text-center outline-none select-none hover:bg-white/10 hover:text-white transition-colors"
                             >
@@ -1280,7 +1385,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                         </Tooltip>
 
                         <Tooltip content={t.sc_zoom_in}>
-                            <button 
+                            <button
                                 onClick={zoomIn}
                                 className="p-2 hover:bg-white/10 hover:text-white transition-colors rounded-e-full"
                             >
@@ -1292,7 +1397,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
 
                 <div className="absolute bottom-6 right-6 hidden md:block z-20">
                     <Tooltip content={t.shortcuts_title} position="left">
-                        <button 
+                        <button
                             onClick={() => setShowShortcuts(true)}
                             className="p-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors shadow-lg"
                         >
@@ -1305,11 +1410,10 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                     <Tooltip content={activeTool === 'move' ? t.tool_select : t.tool_move} position="bottom">
                         <button
                             onClick={() => setActiveTool(activeTool === 'move' ? 'select' : 'move')}
-                            className={`p-2 rounded-xl transition-all ${
-                                activeTool === 'move' 
-                                ? 'bg-purple-600 text-white shadow-lg' 
+                            className={`p-2 rounded-xl transition-all ${activeTool === 'move'
+                                ? 'bg-purple-600 text-white shadow-lg'
                                 : 'text-white/60 hover:text-white hover:bg-white/10'
-                            }`}
+                                }`}
                         >
                             <Hand className="w-5 h-5" />
                         </button>
@@ -1323,23 +1427,22 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                             <Tooltip key={tool.id} content={tool.label} position="bottom">
                                 <button
                                     onClick={() => setActiveTool(tool.id as ToolType)}
-                                    className={`p-2 rounded-xl transition-all ${
-                                        activeTool === tool.id 
-                                        ? 'bg-purple-600 text-white shadow-lg' 
+                                    className={`p-2 rounded-xl transition-all ${activeTool === tool.id
+                                        ? 'bg-purple-600 text-white shadow-lg'
                                         : 'text-white/60 hover:text-white hover:bg-white/10'
-                                    }`}
+                                        }`}
                                 >
                                     <Icon className="w-5 h-5" />
                                 </button>
                             </Tooltip>
                         );
                     })}
-                    
+
                     <div className="w-px h-5 bg-white/10 mx-1" />
-                    
+
                     <Tooltip content={t.tool_undo} position="bottom">
-                        <button 
-                            onClick={handleUndo} 
+                        <button
+                            onClick={handleUndo}
                             disabled={historyIndex <= 0}
                             className="p-2 text-white/60 hover:text-white hover:bg-white/10 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed group"
                         >
@@ -1349,16 +1452,16 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
 
                     <Tooltip content={t.tool_color} position="bottom">
                         <label className="cursor-pointer block relative">
-                            <input 
+                            <input
                                 id="editor-color-picker"
-                                type="color" 
-                                value={systemColor} 
+                                type="color"
+                                value={systemColor}
                                 onChange={(e) => setSystemColor(e.target.value)}
                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                             />
                             <div className="p-2 hover:bg-white/10 rounded-xl transition-colors">
-                                <div 
-                                    className="w-5 h-5 rounded-full border-2 border-white/20 shadow-sm" 
+                                <div
+                                    className="w-5 h-5 rounded-full border-2 border-white/20 shadow-sm"
                                     style={{ backgroundColor: systemColor }}
                                 ></div>
                             </div>
@@ -1366,9 +1469,9 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                     </Tooltip>
 
                     <div className="w-px h-5 bg-white/10 mx-1" />
-                    
+
                     <Tooltip content={t.tool_exit} position="bottom">
-                         <button 
+                        <button
                             onClick={() => setShowExitDialog(true)}
                             className="p-2 text-white/40 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all"
                         >
@@ -1379,17 +1482,17 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
 
                 <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-30 select-none">
                     <div className="relative flex items-center h-14 pl-2 pr-1.5 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl shadow-black/40 ring-1 ring-white/5">
-                        
+
                         <div className="flex items-center mr-2">
-                             {attachedImages.map((img, idx) => (
+                            {attachedImages.map((img, idx) => (
                                 <Tooltip key={idx} content={t.ref_image_n.replace('{n}', (idx + 1).toString())}>
-                                    <div 
-                                        className={`relative w-8 h-8 rounded-full overflow-hidden border border-purple-500/50 group flex-shrink-0 bg-[#0D0B14] ${idx > 0 ? '-ml-3' : ''}`} 
+                                    <div
+                                        className={`relative w-8 h-8 rounded-full overflow-hidden border border-purple-500/50 group flex-shrink-0 bg-[#0D0B14] ${idx > 0 ? '-ml-3' : ''}`}
                                         style={{ zIndex: 10 + idx }}
                                     >
                                         <div className="w-full h-full relative">
                                             <img src={img} alt={`Ref ${idx}`} className="w-full h-full object-cover" />
-                                            <button 
+                                            <button
                                                 onClick={() => removeAttachedImage(idx)}
                                                 className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                                             >
@@ -1398,19 +1501,19 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                                         </div>
                                     </div>
                                 </Tooltip>
-                             ))}
-                             
-                             {attachedImages.length < 3 && (
+                            ))}
+
+                            {attachedImages.length < 3 && (
                                 <div className={`relative flex-shrink-0 ${attachedImages.length > 0 ? 'ml-2' : ''}`} style={{ zIndex: 20 }}>
-                                    <input 
-                                        type="file" 
-                                        id="cmd-image-upload" 
-                                        accept=".jpg,.jpeg,.png,.webp" 
-                                        className="hidden" 
+                                    <input
+                                        type="file"
+                                        id="cmd-image-upload"
+                                        accept=".jpg,.jpeg,.png,.webp"
+                                        className="hidden"
                                         onChange={handleRefImageSelect}
                                     />
                                     <Tooltip content={t.upload_ref_image}>
-                                        <label 
+                                        <label
                                             htmlFor="cmd-image-upload"
                                             className="flex items-center justify-center w-8 h-8 rounded-full cursor-pointer transition-all hover:bg-white/10 text-white/50 border border-white/5 hover:border-white/20 hover:text-white"
                                         >
@@ -1418,11 +1521,11 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                                         </label>
                                     </Tooltip>
                                 </div>
-                             )}
+                            )}
                         </div>
 
                         <Tooltip content={t.optimize}>
-                            <button 
+                            <button
                                 onClick={handleOptimize}
                                 disabled={isOptimizing || !command.trim()}
                                 className="flex items-center justify-center w-8 h-full text-purple-500/80 hover:text-purple-400 disabled:opacity-50 disabled:cursor-not-allowed mr-1 active:scale-90 transition-transform"
@@ -1446,15 +1549,66 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                             className="flex-1 bg-transparent border-0 text-white placeholder:text-white/30 focus:ring-0 h-full text-sm font-medium px-0 min-w-0 disabled:opacity-50"
                         />
 
-                        <button 
+                        {/* Model Selector Dropdown */}
+                        {allEditModels.length > 1 && (
+                            <div className="relative ml-2">
+                                <Tooltip content={t.edit_model || 'Edit Model'}>
+                                    <button
+                                        onClick={() => setShowModelDropdown(!showModelDropdown)}
+                                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/70 hover:text-white transition-all text-xs font-medium whitespace-nowrap"
+                                    >
+                                        <span className="max-w-[80px] truncate">{currentModelLabel}</span>
+                                        <ChevronDown className={`w-3 h-3 transition-transform ${showModelDropdown ? 'rotate-180' : ''}`} />
+                                    </button>
+                                </Tooltip>
+
+                                {showModelDropdown && (
+                                    <>
+                                        <div
+                                            className="fixed inset-0 z-40"
+                                            onClick={() => setShowModelDropdown(false)}
+                                        />
+                                        <div className="absolute bottom-full right-0 mb-2 min-w-[200px] max-h-[300px] overflow-y-auto bg-black/90 backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl p-1.5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 custom-scrollbar">
+                                            {groupedEditModels.map((group, groupIdx) => (
+                                                <div key={group.label}>
+                                                    {groupIdx > 0 && (
+                                                        <div className="h-px bg-white/10 my-1.5 mx-1" />
+                                                    )}
+                                                    <div className="px-3 py-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+                                                        {group.label}
+                                                    </div>
+                                                    {group.options.map((model) => (
+                                                        <button
+                                                            key={model.value}
+                                                            onClick={() => handleEditModelChange(model.value)}
+                                                            className={`w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors text-left ${editModelValue === model.value
+                                                                ? 'bg-purple-600/30 text-purple-300'
+                                                                : 'text-white/80 hover:bg-white/10 hover:text-white'
+                                                                }`}
+                                                        >
+                                                            <span className="truncate">{model.label}</span>
+                                                            {editModelValue === model.value && (
+                                                                <span className="ml-auto text-purple-400">✓</span>
+                                                            )}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        )}
+
+                        <button
                             onClick={handleGenerate}
                             disabled={!image || !command.trim()}
                             className={`
                                 flex items-center justify-center gap-1.5 transition-all duration-500 ease-in-out
                                 font-bold shadow-lg active:scale-95 ml-2
                                 disabled:grayscale disabled:opacity-50
-                                ${isGenerating 
-                                    ? 'w-11 h-11 rounded-full p-0 flex-shrink-0 bg-white/60 hover:bg-white/80 text-white shadow-white/20 cursor-pointer' 
+                                ${isGenerating
+                                    ? 'w-11 h-11 rounded-full p-0 flex-shrink-0 bg-white/60 hover:bg-white/80 text-white shadow-white/20 cursor-pointer'
                                     : 'px-4 py-2 rounded-full flex-shrink-0 generate-button-gradient text-white shadow-purple-900/20'
                                 }
                             `}
@@ -1481,13 +1635,13 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                         <h3 className="text-lg font-bold text-white mb-2">{t.exit_dialog_title}</h3>
                         <p className="text-white/60 text-sm mb-6">{t.exit_dialog_desc}</p>
                         <div className="flex justify-end gap-3">
-                            <button 
+                            <button
                                 onClick={() => setShowExitDialog(false)}
                                 className="px-4 py-2 rounded-lg text-white/60 hover:text-white hover:bg-white/5 transition-colors text-sm font-medium"
                             >
                                 {t.cancel}
                             </button>
-                            <button 
+                            <button
                                 onClick={handleExit}
                                 className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors text-sm font-medium"
                             >
@@ -1500,11 +1654,11 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
 
             {/* History Modal */}
             {showHistoryModal && (
-                <div 
+                <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
                     onClick={() => setShowHistoryModal(false)}
                 >
-                    <div 
+                    <div
                         className="bg-[#1A1625] border border-white/10 rounded-2xl p-0 max-w-3xl w-[90vw] h-[80vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden"
                         onClick={e => e.stopPropagation()}
                     >
@@ -1517,7 +1671,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-                        
+
                         <div className="flex-1 overflow-y-auto p-5 custom-scrollbar bg-[#0D0B14]">
                             {history.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-full text-white/30 space-y-4">
@@ -1532,9 +1686,9 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                                             onClick={() => handleHistorySelect(img)}
                                             className="group relative aspect-square rounded-xl overflow-hidden border border-white/10 hover:border-purple-500 transition-all hover:ring-4 hover:ring-purple-500/20 focus:outline-none"
                                         >
-                                            <img 
-                                                src={img.url} 
-                                                alt={img.prompt} 
+                                            <img
+                                                src={img.url}
+                                                alt={img.prompt}
                                                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                                 loading="lazy"
                                             />
@@ -1556,11 +1710,11 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
 
             {/* Gallery Modal */}
             {showGalleryModal && (
-                <div 
+                <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
                     onClick={() => setShowGalleryModal(false)}
                 >
-                    <div 
+                    <div
                         className="bg-[#1A1625] border border-white/10 rounded-2xl p-0 max-w-3xl w-[90vw] h-[80vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden"
                         onClick={e => e.stopPropagation()}
                     >
@@ -1573,7 +1727,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-                        
+
                         <div className="flex-1 overflow-y-auto p-5 custom-scrollbar bg-[#0D0B14]">
                             {galleryLoading ? (
                                 <div className="flex flex-col items-center justify-center h-full text-white/30 space-y-4">
@@ -1588,8 +1742,8 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                                 <>
                                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                                         {visibleGalleryFiles.map((file) => {
-                                             const displayUrl = (getStorageTypeForGallery === 'webdav' && galleryLocalUrls[file.key]) 
-                                                ? galleryLocalUrls[file.key] 
+                                            const displayUrl = (getStorageTypeForGallery === 'webdav' && galleryLocalUrls[file.key])
+                                                ? galleryLocalUrls[file.key]
                                                 : (getStorageTypeForGallery !== 'webdav' ? file.url : '');
 
                                             return (
@@ -1599,9 +1753,9 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                                                     className="group relative aspect-square rounded-xl overflow-hidden border border-white/10 hover:border-purple-500 transition-all hover:ring-4 hover:ring-purple-500/20 focus:outline-none bg-white/5"
                                                 >
                                                     {displayUrl ? (
-                                                        <img 
-                                                            src={displayUrl} 
-                                                            alt={file.key} 
+                                                        <img
+                                                            src={displayUrl}
+                                                            alt={file.key}
                                                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                                             loading="lazy"
                                                         />
@@ -1632,11 +1786,11 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
             )}
 
             {showShortcuts && (
-                <div 
+                <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
                     onClick={() => setShowShortcuts(false)}
                 >
-                    <div 
+                    <div
                         className="bg-[#1A1625] border border-white/10 rounded-2xl p-4 max-w-xl w-full shadow-2xl animate-in zoom-in-95 duration-200"
                         onClick={e => e.stopPropagation()}
                     >
@@ -1649,7 +1803,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-                        
+
                         <div className="grid grid-cols-2 gap-x-8 gap-y-3">
                             {shortcutsList.map((item, idx) => (
                                 <div key={idx} className="flex items-center justify-between text-sm group">
