@@ -402,6 +402,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                     groups.push({ label: t.provider_openrouter, options: openrouterOptions });
                 }
             }
+
+            // OpenAI Compatible - Show if token and API URL are configured
+            if ((openaiCompatToken || localStorage.getItem('openaiCompatToken')) &&
+                (openaiCompatApiUrl || localStorage.getItem('openaiCompatApiUrl')) || hasEnvOpenAICompatToken()) {
+                const openaiCompatOptions = baseList.filter(m => m.provider === 'openai-compat').map(m => ({ value: m.value, label: cleanLabel(m.label) }));
+                if (openaiCompatOptions.length > 0) {
+                    groups.push({ label: t.provider_openai_compat, options: openaiCompatOptions });
+                }
+            }
         }
 
         // 2. Custom Providers
@@ -1013,42 +1022,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                                 )}
 
                                                 {renderProviderPanel(
-                                                    'gitee',
-                                                    t.provider_gitee,
-                                                    'bg-red-500',
-                                                    renderTokenInput(
-                                                        giteeToken,
-                                                        handleGiteeTokenChange,
-                                                        showGiteeToken,
-                                                        () => setShowGiteeToken(!showGiteeToken),
-                                                        giteeStats,
-                                                        '...,...',
-                                                        t.giteeTokenHelp,
-                                                        t.giteeTokenLink,
-                                                        t.giteeTokenHelpEnd,
-                                                        "https://ai.gitee.com/dashboard/settings/tokens"
-                                                    )
-                                                )}
-
-                                                {renderProviderPanel(
-                                                    'modelscope',
-                                                    t.provider_modelscope,
-                                                    'bg-blue-500',
-                                                    renderTokenInput(
-                                                        msToken,
-                                                        handleMsTokenChange,
-                                                        showMsToken,
-                                                        () => setShowMsToken(!showMsToken),
-                                                        msStats,
-                                                        'ms-...,ms-...',
-                                                        t.msTokenHelp,
-                                                        t.msTokenLink,
-                                                        t.msTokenHelpEnd,
-                                                        "https://modelscope.cn/my/myaccesstoken"
-                                                    )
-                                                )}
-
-                                                {renderProviderPanel(
                                                     'openrouter',
                                                     t.provider_openrouter,
                                                     'bg-cyan-500',
@@ -1332,26 +1305,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                 {/* Tab 3: Models Selection */}
                                 {tab.id === 'models' && (
                                     <div className="space-y-6">
-                                        {/* Creation Model - Temporarily Hidden */}
-                                        {/* <Select
-                                            label={t.model_creation}
-                                            value={creationModelValue}
-                                            onChange={setCreationModelValue}
-                                            options={getCreationModelGroups()}
-                                            icon={<Sparkles className="w-4 h-4" />}
-                                            dense
-                                        /> */}
-
-                                        {/* Edit Model */}
-                                        <Select
-                                            label={t.model_edit}
-                                            value={editModelValue}
-                                            onChange={setEditModelValue}
-                                            options={getAvailableModelGroups(EDIT_MODELS, 'edit')}
-                                            icon={<Layers className="w-4 h-4" />}
-                                            dense
-                                        />
-
                                         {/* Live Model */}
                                         <Select
                                             label={t.model_live}
@@ -1362,7 +1315,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                             dense
                                         />
 
-                                        {/* Upscaler Model - Added per request */}
+                                        {/* Upscaler Model - 超清放大 */}
                                         <Select
                                             label={t.upscale}
                                             value={upscalerModelValue}
@@ -1372,7 +1325,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                                             dense
                                         />
 
-                                        {/* Text Model */}
+                                        {/* Text Model - 提示词优化 */}
                                         <Select
                                             label={t.model_text}
                                             value={textModelValue}

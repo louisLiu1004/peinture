@@ -34,6 +34,7 @@ import { editImageGitee, optimizePromptGitee } from '../services/giteeService';
 import { editImageMS, optimizePromptMS } from '../services/msService';
 import { editImageCustom, optimizePromptCustom } from '../services/customService';
 import { editImageOpenRouter } from '../services/openrouterService';
+import { editImageOpenAICompat } from '../services/openaiCompatService';
 import { optimizeEditPrompt, getEditModelConfig, saveEditModelConfig, getCustomProviders, fetchBlob, downloadImage, getTextModelConfig, getServiceMode } from '../services/utils';
 import { isStorageConfigured, listCloudFiles, fetchCloudBlob, getStorageType } from '../services/storageService';
 import { ProviderOption, GeneratedImage, CloudFile } from '../types';
@@ -257,6 +258,17 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
                     groups.push({
                         label: 'OpenRouter',
                         options: openRouterModels.map(m => ({ label: m.label, value: m.value }))
+                    });
+                }
+            }
+
+            // OpenAI Compatible models (only if token and api url exist)
+            if (localStorage.getItem('openaiCompatToken') && localStorage.getItem('openaiCompatApiUrl')) {
+                const openaiCompatModels = EDIT_MODELS.filter(m => m.provider === 'openai-compat');
+                if (openaiCompatModels.length > 0) {
+                    groups.push({
+                        label: 'OpenAI Compatible',
+                        options: openaiCompatModels.map(m => ({ label: m.label, value: m.value }))
                     });
                 }
             }
@@ -1070,6 +1082,9 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ t, provider, setProvid
             } else if (activeProvider === 'openrouter') {
                 // OpenRouter (Gemini models)
                 result = await editImageOpenRouter(activeModel, imageBlobs, finalPrompt, controller.signal);
+            } else if (activeProvider === 'openai-compat') {
+                // OpenAI Compatible
+                result = await editImageOpenAICompat(activeModel, imageBlobs, finalPrompt, controller.signal);
             } else {
                 // Custom Provider
                 const customProviders = getCustomProviders();

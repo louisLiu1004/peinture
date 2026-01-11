@@ -37,10 +37,7 @@ export const API_MODEL_MAP: Record<ProviderOption, Record<string, string>> = {
 };
 
 export const HF_MODEL_OPTIONS = [
-  { value: 'z-image-turbo', label: 'Z-Image Turbo' },
-  { value: 'qwen-image', label: 'Qwen Image' },
-  { value: 'ovis-image', label: 'Ovis Image' },
-  { value: 'flux-1-schnell', label: 'FLUX.1 Schnell' }
+  { value: 'z-image-turbo', label: 'Z-Image Turbo' }
 ];
 
 export const GITEE_MODEL_OPTIONS = [
@@ -70,34 +67,6 @@ export const OPENROUTER_MODEL_OPTIONS: OpenRouterModelConfig[] = [
       imageSize: { options: ['1K', '2K', '4K'], default: '1K' },
       aspectRatio: { options: GEMINI_ASPECT_RATIOS, default: '1:1' }
     }
-  },
-  {
-    value: 'google/gemini-2.5-flash-image',
-    label: 'Gemini 2.5 Flash Image',
-    capabilities: {
-      imageSize: { options: ['1K', '2K', '4K'], default: '1K' },
-      aspectRatio: { options: GEMINI_ASPECT_RATIOS, default: '1:1' }
-    }
-  },
-  {
-    value: 'black-forest-labs/flux-pro',
-    label: 'FLUX.1 Pro',
-    capabilities: {}  // FLUX models don't support imageSize via OpenRouter
-  },
-  {
-    value: 'black-forest-labs/flux-1.1-pro',
-    label: 'FLUX.1.1 Pro',
-    capabilities: {}
-  },
-  {
-    value: 'black-forest-labs/flux-kontext-pro',
-    label: 'FLUX Kontext Pro',
-    capabilities: {}
-  },
-  {
-    value: 'black-forest-labs/flux-kontext-max',
-    label: 'FLUX Kontext Max',
-    capabilities: {}
   }
 ];
 
@@ -116,16 +85,13 @@ export interface OpenAICompatModelConfig {
 }
 
 export const OPENAI_COMPAT_MODEL_OPTIONS: OpenAICompatModelConfig[] = [
-  { value: 'gpt-image-1.5', label: 'GPT Image 1.5', capabilities: {} },
   {
     value: 'nano-banana-2',
     label: 'Nano Banana 2',
     capabilities: {
       imageSize: { options: ['1K', '2K', '4K'], default: '1K' }
     }
-  },
-  { value: 'gpt-4o', label: 'GPT-4o', capabilities: {} },
-  { value: 'dall-e-3', label: 'DALL-E 3', capabilities: {} },
+  }
 ];
 
 // Helper function to get OpenAI Compat model config by model ID
@@ -199,8 +165,8 @@ export const EDIT_MODELS: UnifiedModelOption[] = [
   { label: 'Qwen Image Edit', value: 'huggingface:qwen-image-edit', provider: 'huggingface' },
   { label: 'Qwen Image Edit', value: 'gitee:qwen-image-edit', provider: 'gitee' },
   { label: 'Qwen Image Edit', value: 'modelscope:qwen-image-edit', provider: 'modelscope' },
-  { label: 'Gemini 2.5 Flash Image', value: 'openrouter:google/gemini-2.5-flash-image', provider: 'openrouter' },
   { label: 'Gemini 3 Pro Image', value: 'openrouter:google/gemini-3-pro-image-preview', provider: 'openrouter' },
+  { label: 'Nano Banana 2', value: 'openai-compat:nano-banana-2', provider: 'openai-compat' },
 ];
 
 export const LIVE_MODELS: UnifiedModelOption[] = [

@@ -88,7 +88,7 @@ export const translations = {
     // Service Mode
     service_mode: "Service Mode",
     mode_local: "Local",
-    mode_server: "Server",
+    mode_server: "Custom",
     mode_hydration: "Both",
     access_password_title: "Authentication Required",
     access_password_desc: "The server requires an access password to proceed.",
@@ -428,7 +428,7 @@ export const translations = {
     // Service Mode
     service_mode: "服务模式",
     mode_local: "本地",
-    mode_server: "服务器",
+    mode_server: "自定义",
     mode_hydration: "全部启用",
     access_password_title: "需要认证",
     access_password_desc: "服务器需要访问密码才能继续。",
