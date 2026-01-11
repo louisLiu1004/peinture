@@ -90,8 +90,8 @@ export const PreviewStage: React.FC<PreviewStageProps> = ({
                         <div
                             key={index}
                             className={`relative flex items-center justify-center rounded-lg overflow-hidden cursor-pointer transition-all ${progress?.status === 'loading'
-                                    ? 'bg-black/40 backdrop-blur-sm ring-1 ring-purple-500/60 shadow-lg shadow-purple-500/20'
-                                    : `bg-black/90 ${isSelected ? 'ring-2 ring-purple-500 ring-offset-2 ring-offset-black/40' : 'hover:ring-1 hover:ring-white/30'}`
+                                ? 'bg-black/40 backdrop-blur-sm ring-1 ring-purple-500/60 shadow-lg shadow-purple-500/20'
+                                : `bg-black/90 ${isSelected ? 'ring-2 ring-purple-500 ring-offset-2 ring-offset-black/40' : 'hover:ring-1 hover:ring-white/30'}`
                                 }`}
                             onClick={() => image && onBatchImageSelect?.(index)}
                         >
@@ -147,7 +147,7 @@ export const PreviewStage: React.FC<PreviewStageProps> = ({
                     <img
                         src={currentImage.url}
                         alt=""
-                        className="w-full h-full object-cover blur-3xl opacity-40"
+                        className="w-full h-full object-cover blur-3xl opacity-90"
                     />
                 </div>
             )}
