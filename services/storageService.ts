@@ -25,35 +25,66 @@ export const DEFAULT_WEBDAV_CONFIG: WebDAVConfig = {
 // --- Configuration Management ---
 
 export const getS3Config = (): S3Config => {
-    if (typeof localStorage === 'undefined') return DEFAULT_S3_CONFIG;
-    try {
+    // 1. LocalStorage
+    if (typeof localStorage !== 'undefined') {
         const stored = localStorage.getItem(S3_CONFIG_KEY);
         if (stored) {
             return { ...DEFAULT_S3_CONFIG, ...JSON.parse(stored) };
         }
-    } catch (e) {
-        console.error("Failed to load S3 config", e);
     }
+
+    // 2. Environment Variables
+    if (import.meta.env.VITE_S3_ACCESS_KEY) {
+        return {
+            accessKeyId: import.meta.env.VITE_S3_ACCESS_KEY,
+            secretAccessKey: import.meta.env.VITE_S3_SECRET_KEY,
+            region: import.meta.env.VITE_S3_REGION || 'us-east-1',
+            endpoint: import.meta.env.VITE_S3_ENDPOINT || '',
+            bucket: import.meta.env.VITE_S3_BUCKET || '',
+            publicDomain: import.meta.env.VITE_S3_PUBLIC_DOMAIN || '',
+            prefix: 'peinture/'
+        };
+    }
+
     return DEFAULT_S3_CONFIG;
 };
 
 export const getWebDAVConfig = (): WebDAVConfig => {
-    if (typeof localStorage === 'undefined') return DEFAULT_WEBDAV_CONFIG;
-    try {
+    // 1. LocalStorage
+    if (typeof localStorage !== 'undefined') {
         const stored = localStorage.getItem(WEBDAV_CONFIG_KEY);
         if (stored) {
             return { ...DEFAULT_WEBDAV_CONFIG, ...JSON.parse(stored) };
         }
-    } catch (e) {
-        console.error("Failed to load WebDAV config", e);
     }
+
+    // 2. Environment Variables
+    if (import.meta.env.VITE_WEBDAV_URL) {
+        return {
+            url: import.meta.env.VITE_WEBDAV_URL,
+            username: import.meta.env.VITE_WEBDAV_USER || '',
+            password: import.meta.env.VITE_WEBDAV_PASSWORD || '',
+            directory: 'peinture'
+        };
+    }
+
     return DEFAULT_WEBDAV_CONFIG;
 };
 
 export const getStorageType = (): StorageType => {
-    if (typeof localStorage === 'undefined') return 'off';
-    const type = localStorage.getItem(STORAGE_TYPE_KEY) as StorageType;
-    return ['off', 's3', 'webdav'].includes(type) ? type : 'off';
+    // 1. LocalStorage
+    if (typeof localStorage !== 'undefined') {
+        const stored = localStorage.getItem(STORAGE_TYPE_KEY);
+        if (stored) return stored as StorageType;
+    }
+
+    // 2. Environment Variables
+    const envType = import.meta.env.VITE_STORAGE_TYPE;
+    if (envType && ['s3', 'webdav', 'local', 'off'].includes(envType)) {
+        return envType as StorageType;
+    }
+
+    return 'off';
 };
 
 export const saveS3Config = (config: S3Config) => {
@@ -119,10 +150,10 @@ async function importKey(keyData: string | ArrayBuffer): Promise<CryptoKey> {
     const encoder = new TextEncoder();
     const rawKey = typeof keyData === 'string' ? encoder.encode(keyData) : keyData;
     return crypto.subtle.importKey(
-        "raw", 
-        rawKey, 
-        { name: "HMAC", hash: "SHA-256" }, 
-        false, 
+        "raw",
+        rawKey,
+        { name: "HMAC", hash: "SHA-256" },
+        false,
         ["sign"]
     );
 }
@@ -165,14 +196,14 @@ const convertWebPToPNG = async (blob: Blob): Promise<Blob> => {
 };
 
 export const uploadToCloud = async (
-    blob: Blob, 
+    blob: Blob,
     fileName: string,
     metadata?: any
 ): Promise<string> => {
     const type = getStorageType();
-    
+
     let finalBlob = blob;
-    
+
     if (blob.type === 'image/webp') {
         try {
             finalBlob = await convertWebPToPNG(blob);
@@ -182,9 +213,9 @@ export const uploadToCloud = async (
     }
 
     let finalFileName = fileName;
-    
+
     if (blob.type === 'image/webp' && finalBlob.type === 'image/png' && finalFileName.toLowerCase().endsWith('.webp')) {
-         finalFileName = finalFileName.substring(0, finalFileName.length - 5);
+        finalFileName = finalFileName.substring(0, finalFileName.length - 5);
     }
 
     const typeExtMap: Record<string, string> = {
@@ -196,7 +227,7 @@ export const uploadToCloud = async (
         'video/webm': '.webm'
     };
     const ext = typeExtMap[finalBlob.type];
-    
+
     if (ext && !finalFileName.toLowerCase().endsWith(ext)) {
         finalFileName = finalFileName + ext;
     }
@@ -216,12 +247,12 @@ export const uploadToCloud = async (
         try {
             const id = getFileId(finalFileName);
             const metadataFileName = id ? `${id}.metadata.json` : `${finalFileName}.metadata.json`;
-            
+
             const metadataContent = { ...metadata };
             if (!metadataContent.id) metadataContent.id = id;
 
             const jsonBlob = new Blob([JSON.stringify(metadataContent, null, 2)], { type: "application/json" });
-            
+
             if (type === 's3') {
                 const config = getS3Config();
                 await uploadToS3(jsonBlob, metadataFileName, "application/json", config);
@@ -258,7 +289,7 @@ export const fetchCloudBlob = async (url: string): Promise<Blob> => {
         const config = getWebDAVConfig();
         const baseUrl = config.url.replace(/\/+$/, '');
         if (url.startsWith(baseUrl)) {
-             headers = getWebDAVHeaders(config);
+            headers = getWebDAVHeaders(config);
         }
     } else if (type === 's3') {
         const config = getS3Config();
@@ -285,15 +316,15 @@ const fetchS3Signed = async (url: string, method: string, config: S3Config): Pro
     const region = config.region || 'us-east-1';
     const service = "s3";
 
-    const payloadHash = await sha256(''); 
+    const payloadHash = await sha256('');
 
-    const canonicalHeaders = 
+    const canonicalHeaders =
         `host:${host}\n` +
         `x-amz-content-sha256:${payloadHash}\n` +
         `x-amz-date:${isoDate}\n`;
     const signedHeaders = "host;x-amz-content-sha256;x-amz-date";
 
-    const canonicalRequest = 
+    const canonicalRequest =
         `${method}\n` +
         `${path}\n` +
         `${query.replace('?', '')}\n` +
@@ -303,7 +334,7 @@ const fetchS3Signed = async (url: string, method: string, config: S3Config): Pro
 
     const algorithm = "AWS4-HMAC-SHA256";
     const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
-    const stringToSign = 
+    const stringToSign =
         `${algorithm}\n` +
         `${isoDate}\n` +
         `${credentialScope}\n` +
@@ -314,13 +345,13 @@ const fetchS3Signed = async (url: string, method: string, config: S3Config): Pro
     const kRegion = await importKey(await hmac(kDate, region));
     const kService = await importKey(await hmac(kRegion, service));
     const kSigning = await importKey(await hmac(kService, "aws4_request"));
-    
+
     const signatureBuffer = await hmac(kSigning, stringToSign);
     const signature = Array.from(new Uint8Array(signatureBuffer))
         .map(b => b.toString(16).padStart(2, '0'))
         .join('');
 
-    const authorizationHeader = 
+    const authorizationHeader =
         `${algorithm} Credential=${config.accessKeyId}/${credentialScope}, ` +
         `SignedHeaders=${signedHeaders}, ` +
         `Signature=${signature}`;
@@ -343,13 +374,13 @@ export const deleteCloudFile = async (keyOrUrl: string): Promise<void> => {
     try {
         const id = getFileId(keyOrUrl);
         const jsonKeyOrUrl = id ? `${id}.metadata.json` : `${keyOrUrl}.metadata.json`;
-        
+
         if (type === 's3') {
             const config = getS3Config();
-            await deleteS3Object(config, jsonKeyOrUrl).catch(() => {});
+            await deleteS3Object(config, jsonKeyOrUrl).catch(() => { });
         } else if (type === 'webdav') {
             const config = getWebDAVConfig();
-            await deleteWebDAVFile(config, jsonKeyOrUrl).catch(() => {});
+            await deleteWebDAVFile(config, jsonKeyOrUrl).catch(() => { });
         }
     } catch (e) {
         console.warn("Metadata delete failed, ignoring", e);
@@ -381,17 +412,17 @@ const performS3Rename = async (config: S3Config, oldKeyOrUrl: string, newKeyOrUr
     let endpoint = config.endpoint || `https://s3.${region}.amazonaws.com`;
     endpoint = endpoint.replace(/\/$/, "");
     const bucket = config.bucket || '';
-    
+
     const constructUrl = (key: string) => bucket ? `${endpoint}/${bucket}/${key}` : `${endpoint}/${key}`;
-    
+
     const oldUrl = oldKeyOrUrl.startsWith('http') ? oldKeyOrUrl : constructUrl(oldKeyOrUrl);
-    
+
     const blob = await fetchCloudBlob(oldUrl);
-    
+
     let newKey = newKeyOrUrl.split('/').pop() || newKeyOrUrl;
-    
+
     await uploadToS3(blob, newKey, blob.type, config);
-    
+
     const oldKey = oldKeyOrUrl.startsWith('http') ? oldKeyOrUrl.split('/').pop()! : oldKeyOrUrl;
     await deleteS3Object(config, oldKey);
 };
@@ -399,7 +430,7 @@ const performS3Rename = async (config: S3Config, oldKeyOrUrl: string, newKeyOrUr
 const performWebDAVRename = async (config: WebDAVConfig, oldKeyOrUrl: string, newKeyOrUrl: string) => {
     const sourceUrl = oldKeyOrUrl.startsWith('http') ? oldKeyOrUrl : joinPath(config.url, config.directory, oldKeyOrUrl);
     const destUrl = newKeyOrUrl.startsWith('http') ? newKeyOrUrl : joinPath(config.url, config.directory, newKeyOrUrl);
-    
+
     const response = await fetch(sourceUrl, {
         method: 'MOVE',
         headers: {
@@ -409,16 +440,16 @@ const performWebDAVRename = async (config: WebDAVConfig, oldKeyOrUrl: string, ne
     });
 
     if (!response.ok && response.status !== 201 && response.status !== 204) {
-         throw new Error(`WebDAV Rename Failed: ${response.status}`);
+        throw new Error(`WebDAV Rename Failed: ${response.status}`);
     }
 };
 
 // --- S3 Operations (Internal) ---
 
 const uploadToS3 = async (
-    blob: Blob, 
-    fileName: string, 
-    contentType: string, 
+    blob: Blob,
+    fileName: string,
+    contentType: string,
     config: S3Config
 ): Promise<string> => {
     if (!config.accessKeyId || !config.secretAccessKey) {
@@ -432,15 +463,15 @@ const uploadToS3 = async (
     const service = "s3";
     const bucket = config.bucket || '';
     const prefix = getS3Prefix(config);
-    
+
     // Check if filename already has the prefix to avoid double nesting
     const key = fileName.startsWith(prefix) ? fileName : `${prefix}${fileName}`;
 
     let endpoint = config.endpoint || `https://s3.${region}.amazonaws.com`;
     endpoint = endpoint.replace(/\/$/, "");
-    
+
     const host = new URL(endpoint).host;
-    
+
     const url = bucket ? `${endpoint}/${bucket}/${key}` : `${endpoint}/${key}`;
 
     const payloadHash = await sha256(await blob.arrayBuffer());
@@ -448,13 +479,13 @@ const uploadToS3 = async (
     const method = "PUT";
     const canonicalUri = bucket ? `/${bucket}/${key}` : `/${key}`;
     const canonicalQueryString = "";
-    const canonicalHeaders = 
+    const canonicalHeaders =
         `host:${host}\n` +
         `x-amz-content-sha256:${payloadHash}\n` +
         `x-amz-date:${isoDate}\n`;
     const signedHeaders = "host;x-amz-content-sha256;x-amz-date";
-    
-    const canonicalRequest = 
+
+    const canonicalRequest =
         `${method}\n` +
         `${canonicalUri}\n` +
         `${canonicalQueryString}\n` +
@@ -464,7 +495,7 @@ const uploadToS3 = async (
 
     const algorithm = "AWS4-HMAC-SHA256";
     const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
-    const stringToSign = 
+    const stringToSign =
         `${algorithm}\n` +
         `${isoDate}\n` +
         `${credentialScope}\n` +
@@ -475,13 +506,13 @@ const uploadToS3 = async (
     const kRegion = await importKey(await hmac(kDate, region));
     const kService = await importKey(await hmac(kRegion, service));
     const kSigning = await importKey(await hmac(kService, "aws4_request"));
-    
+
     const signatureBuffer = await hmac(kSigning, stringToSign);
     const signature = Array.from(new Uint8Array(signatureBuffer))
         .map(b => b.toString(16).padStart(2, '0'))
         .join('');
 
-    const authorizationHeader = 
+    const authorizationHeader =
         `${algorithm} Credential=${config.accessKeyId}/${credentialScope}, ` +
         `SignedHeaders=${signedHeaders}, ` +
         `Signature=${signature}`;
@@ -506,7 +537,7 @@ const uploadToS3 = async (
         const domain = config.publicDomain.replace(/\/$/, "");
         return `${domain}/${key}`;
     }
-    
+
     return url;
 };
 
@@ -529,20 +560,20 @@ export const listS3Files = async (config: S3Config): Promise<CloudFile[]> => {
     const url = bucket ? `${endpoint}/${bucket}` : `${endpoint}`;
 
     const listType = '2';
-    
+
     const canonicalQueryString = `list-type=${listType}&prefix=${encodeURIComponent(prefix)}`;
-    
-    const payloadHash = await sha256(''); 
+
+    const payloadHash = await sha256('');
 
     const method = "GET";
     const canonicalUri = bucket ? `/${bucket}` : `/`;
-    const canonicalHeaders = 
+    const canonicalHeaders =
         `host:${host}\n` +
         `x-amz-content-sha256:${payloadHash}\n` +
         `x-amz-date:${isoDate}\n`;
     const signedHeaders = "host;x-amz-content-sha256;x-amz-date";
 
-    const canonicalRequest = 
+    const canonicalRequest =
         `${method}\n` +
         `${canonicalUri}\n` +
         `${canonicalQueryString}\n` +
@@ -552,7 +583,7 @@ export const listS3Files = async (config: S3Config): Promise<CloudFile[]> => {
 
     const algorithm = "AWS4-HMAC-SHA256";
     const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
-    const stringToSign = 
+    const stringToSign =
         `${algorithm}\n` +
         `${isoDate}\n` +
         `${credentialScope}\n` +
@@ -563,13 +594,13 @@ export const listS3Files = async (config: S3Config): Promise<CloudFile[]> => {
     const kRegion = await importKey(await hmac(kDate, region));
     const kService = await importKey(await hmac(kRegion, service));
     const kSigning = await importKey(await hmac(kService, "aws4_request"));
-    
+
     const signatureBuffer = await hmac(kSigning, stringToSign);
     const signature = Array.from(new Uint8Array(signatureBuffer))
         .map(b => b.toString(16).padStart(2, '0'))
         .join('');
 
-    const authorizationHeader = 
+    const authorizationHeader =
         `${algorithm} Credential=${config.accessKeyId}/${credentialScope}, ` +
         `SignedHeaders=${signedHeaders}, ` +
         `Signature=${signature}`;
@@ -593,10 +624,10 @@ export const listS3Files = async (config: S3Config): Promise<CloudFile[]> => {
         const text = await response.text();
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(text, "text/xml");
-        
+
         const contents = xmlDoc.getElementsByTagName("Contents");
         const files: CloudFile[] = [];
-        
+
         const domain = config.publicDomain ? config.publicDomain.replace(/\/$/, "") : "";
 
         for (let i = 0; i < contents.length; i++) {
@@ -605,7 +636,7 @@ export const listS3Files = async (config: S3Config): Promise<CloudFile[]> => {
 
             const size = parseInt(contents[i].getElementsByTagName("Size")[0].textContent || "0", 10);
             const lastModified = new Date(contents[i].getElementsByTagName("LastModified")[0].textContent || "");
-            
+
             const lowerKey = key.toLowerCase();
             let type: 'image' | 'video' | 'unknown' = 'unknown';
             if (lowerKey.match(/\.(jpg|jpeg|png|webp|gif)$/)) type = 'image';
@@ -638,7 +669,7 @@ export const deleteS3Object = async (config: S3Config, key: string): Promise<voi
     }
 
     const date = new Date();
-    const isoDate = date.toISOString().replace(/[:-]|\.\d{3}/g, ""); 
+    const isoDate = date.toISOString().replace(/[:-]|\.\d{3}/g, "");
     const dateStamp = isoDate.substring(0, 8);
     const region = config.region || 'us-east-1';
     const service = "s3";
@@ -647,30 +678,30 @@ export const deleteS3Object = async (config: S3Config, key: string): Promise<voi
     let endpoint = config.endpoint || `https://s3.${region}.amazonaws.com`;
     endpoint = endpoint.replace(/\/$/, "");
     const host = new URL(endpoint).host;
-    
+
     const uriPath = bucket ? `/${bucket}/${key}` : `/${key}`;
     const url = bucket ? `${endpoint}/${bucket}/${key}` : `${endpoint}/${key}`;
 
     const method = "DELETE";
-    const payloadHash = await sha256(''); 
+    const payloadHash = await sha256('');
 
-    const canonicalHeaders = 
+    const canonicalHeaders =
         `host:${host}\n` +
         `x-amz-content-sha256:${payloadHash}\n` +
         `x-amz-date:${isoDate}\n`;
     const signedHeaders = "host;x-amz-content-sha256;x-amz-date";
 
-    const canonicalRequest = 
+    const canonicalRequest =
         `${method}\n` +
         `${uriPath}\n` +
-        `\n` + 
+        `\n` +
         `${canonicalHeaders}\n` +
         `${signedHeaders}\n` +
         `${payloadHash}`;
 
     const algorithm = "AWS4-HMAC-SHA256";
     const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
-    const stringToSign = 
+    const stringToSign =
         `${algorithm}\n` +
         `${isoDate}\n` +
         `${credentialScope}\n` +
@@ -681,13 +712,13 @@ export const deleteS3Object = async (config: S3Config, key: string): Promise<voi
     const kRegion = await importKey(await hmac(kDate, region));
     const kService = await importKey(await hmac(kRegion, service));
     const kSigning = await importKey(await hmac(kService, "aws4_request"));
-    
+
     const signatureBuffer = await hmac(kSigning, stringToSign);
     const signature = Array.from(new Uint8Array(signatureBuffer))
         .map(b => b.toString(16).padStart(2, '0'))
         .join('');
 
-    const authorizationHeader = 
+    const authorizationHeader =
         `${algorithm} Credential=${config.accessKeyId}/${credentialScope}, ` +
         `SignedHeaders=${signedHeaders}, ` +
         `Signature=${signature}`;
@@ -703,7 +734,7 @@ export const deleteS3Object = async (config: S3Config, key: string): Promise<voi
     });
 
     if (!response.ok && response.status !== 204) {
-         throw new Error(`S3 Delete Failed: ${response.status} ${response.statusText}`);
+        throw new Error(`S3 Delete Failed: ${response.status} ${response.statusText}`);
     }
 };
 
@@ -727,18 +758,18 @@ export const testS3Connection = async (config: S3Config): Promise<{ success: boo
 
         const listType = '2';
         const canonicalQueryString = `list-type=${listType}&max-keys=1`;
-        
-        const payloadHash = await sha256(''); 
+
+        const payloadHash = await sha256('');
 
         const method = "GET";
         const canonicalUri = bucket ? `/${bucket}` : `/`;
-        const canonicalHeaders = 
+        const canonicalHeaders =
             `host:${host}\n` +
             `x-amz-content-sha256:${payloadHash}\n` +
             `x-amz-date:${isoDate}\n`;
         const signedHeaders = "host;x-amz-content-sha256;x-amz-date";
 
-        const canonicalRequest = 
+        const canonicalRequest =
             `${method}\n` +
             `${canonicalUri}\n` +
             `${canonicalQueryString}\n` +
@@ -748,7 +779,7 @@ export const testS3Connection = async (config: S3Config): Promise<{ success: boo
 
         const algorithm = "AWS4-HMAC-SHA256";
         const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
-        const stringToSign = 
+        const stringToSign =
             `${algorithm}\n` +
             `${isoDate}\n` +
             `${credentialScope}\n` +
@@ -759,13 +790,13 @@ export const testS3Connection = async (config: S3Config): Promise<{ success: boo
         const kRegion = await importKey(await hmac(kDate, region));
         const kService = await importKey(await hmac(kRegion, service));
         const kSigning = await importKey(await hmac(kService, "aws4_request"));
-        
+
         const signatureBuffer = await hmac(kSigning, stringToSign);
         const signature = Array.from(new Uint8Array(signatureBuffer))
             .map(b => b.toString(16).padStart(2, '0'))
             .join('');
 
-        const authorizationHeader = 
+        const authorizationHeader =
             `${algorithm} Credential=${config.accessKeyId}/${credentialScope}, ` +
             `SignedHeaders=${signedHeaders}, ` +
             `Signature=${signature}`;
@@ -808,8 +839,8 @@ const joinPath = (base: string, ...parts: string[]) => {
 };
 
 const uploadToWebDAV = async (
-    blob: Blob, 
-    fileName: string, 
+    blob: Blob,
+    fileName: string,
     config: WebDAVConfig
 ): Promise<string> => {
     if (!isWebDAVConfigured(config)) {
@@ -839,7 +870,7 @@ const listWebDAVFiles = async (config: WebDAVConfig): Promise<CloudFile[]> => {
 
     const dir = config.directory || 'peinture';
     const listUrl = joinPath(config.url, dir);
-    
+
     try {
         const response = await fetch(listUrl, {
             method: 'PROPFIND',
@@ -857,7 +888,7 @@ const listWebDAVFiles = async (config: WebDAVConfig): Promise<CloudFile[]> => {
         const text = await response.text();
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(text, "text/xml");
-        
+
         const responses = xmlDoc.querySelectorAll('response');
         const files: CloudFile[] = [];
 
@@ -866,7 +897,7 @@ const listWebDAVFiles = async (config: WebDAVConfig): Promise<CloudFile[]> => {
         for (let i = 0; i < responses.length; i++) {
             const href = responses[i].querySelector('href')?.textContent || "";
             const props = responses[i].querySelector('propstat > prop');
-            
+
             if (!href || !props) continue;
 
             const urlPath = new URL(href, config.url).pathname;
@@ -874,7 +905,7 @@ const listWebDAVFiles = async (config: WebDAVConfig): Promise<CloudFile[]> => {
             const decodedBasePath = decodeURIComponent(basePath);
 
             if (decodedPath.replace(/\/$/, '') === decodedBasePath.replace(/\/$/, '')) continue;
-            
+
             const fileName = decodedPath.split('/').pop() || "";
             if (!fileName) continue;
 
@@ -883,7 +914,7 @@ const listWebDAVFiles = async (config: WebDAVConfig): Promise<CloudFile[]> => {
 
             const lengthStr = props.querySelector('getcontentlength')?.textContent;
             const size = lengthStr ? parseInt(lengthStr, 10) : 0;
-            
+
             const lowerName = fileName.toLowerCase();
             let type: 'image' | 'video' | 'unknown' = 'unknown';
             if (lowerName.match(/\.(jpg|jpeg|png|webp|gif)$/)) type = 'image';
@@ -939,7 +970,7 @@ export const testWebDAVConnection = async (config: WebDAVConfig): Promise<{ succ
         });
 
         if (!rootResponse.ok) {
-             return { success: false, message: `Connection failed: ${rootResponse.status} ${rootResponse.statusText}` };
+            return { success: false, message: `Connection failed: ${rootResponse.status} ${rootResponse.statusText}` };
         }
     } catch (e: any) {
         return { success: false, message: `Connection error: ${e.message}` };

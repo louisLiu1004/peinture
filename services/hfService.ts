@@ -51,7 +51,11 @@ const saveTokenStatusStore = (store: TokenStatusStore) => {
 };
 
 export const getTokens = (rawInput?: string | null): string[] => {
-  const input = rawInput !== undefined ? rawInput : (typeof localStorage !== 'undefined' ? localStorage.getItem(TOKEN_STORAGE_KEY) : '');
+  const input = rawInput !== undefined
+    ? rawInput
+    : (typeof localStorage !== 'undefined' ? localStorage.getItem(TOKEN_STORAGE_KEY) : null)
+    || import.meta.env.VITE_HF_TOKEN
+    || '';
   if (!input) return [];
   return input.split(',').map(t => t.trim()).filter(t => t.length > 0);
 };
@@ -138,31 +142,31 @@ const runWithTokenRetry = async <T>(operation: (token: string | null) => Promise
 // --- Gradio File Upload Helper ---
 
 export const uploadToGradio = async (baseUrl: string, image: string | Blob, token: string | null, signal?: AbortSignal): Promise<string> => {
-    const formData = new FormData();
-    formData.append('files', image);
-    
-    const headers: Record<string, string> = {};
-    if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-    }
+  const formData = new FormData();
+  formData.append('files', image);
 
-    const response = await fetch(`${baseUrl}/gradio_api/upload`, {
-        method: 'POST',
-        headers,
-        body: formData,
-        signal
-    });
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
 
-    if (!response.ok) {
-        throw new Error(`Failed to upload image to Gradio: ${response.statusText}`);
-    }
+  const response = await fetch(`${baseUrl}/gradio_api/upload`, {
+    method: 'POST',
+    headers,
+    body: formData,
+    signal
+  });
 
-    const result = await response.json();
-    if (!result || !result[0]) {
-        throw new Error('Invalid upload response from Gradio');
-    }
+  if (!response.ok) {
+    throw new Error(`Failed to upload image to Gradio: ${response.statusText}`);
+  }
 
-    return result[0]; // Returns the filename/path relative to the Gradio space
+  const result = await response.json();
+  if (!result || !result[0]) {
+    throw new Error('Invalid upload response from Gradio');
+  }
+
+  return result[0]; // Returns the filename/path relative to the Gradio space
 };
 
 // --- Service Logic ---
@@ -420,10 +424,10 @@ export const editImageQwen = async (
 
       // 1. Upload all Blobs to Gradio first to get temporary paths
       const imagePayloadPromises = imageBlobs.map(async (blob) => {
-          const path = await uploadToGradio(QWEN_IMAGE_EDIT_BASE_API_URL, blob, token, signal);
-          return { image: { path, meta: { _type: "gradio.FileData" } } };
+        const path = await uploadToGradio(QWEN_IMAGE_EDIT_BASE_API_URL, blob, token, signal);
+        return { image: { path, meta: { _type: "gradio.FileData" } } };
       });
-      
+
       const imagePayload = await Promise.all(imagePayloadPromises);
 
       // 2. Call Inference
@@ -460,7 +464,7 @@ export const editImageQwen = async (
       const data = extractCompleteEventData(result);
 
       if (!data || !data[0] || !data[0][0]?.image?.url) {
-          throw new Error("error_invalid_response");
+        throw new Error("error_invalid_response");
       }
 
       return {
@@ -584,13 +588,13 @@ export const createVideoTaskHF = async (imageInput: string | Blob, seed: number 
     try {
       const finalSeed = seed ?? Math.floor(Math.random() * 2147483647);
       const settings = getVideoSettings('huggingface');
-      
+
       let filePath = '';
-      
+
       if (typeof imageInput === 'string') {
-          filePath = imageInput;
+        filePath = imageInput;
       } else {
-          filePath = await uploadToGradio(WAN2_VIDEO_API_URL, imageInput, token);
+        filePath = await uploadToGradio(WAN2_VIDEO_API_URL, imageInput, token);
       }
 
       // Step 1: POST to queue
@@ -626,14 +630,14 @@ export const createVideoTaskHF = async (imageInput: string | Blob, seed: number 
 
         const text = await response.text();
         const data = extractCompleteEventData(text);
-        
+
         if (data) {
-            const vid = data[0];
-            if (vid?.video?.url) return vid.video.url;
-            if (vid?.url) return vid.url;
-            return vid;
+          const vid = data[0];
+          if (vid?.video?.url) return vid.video.url;
+          if (vid?.url) return vid.url;
+          return vid;
         }
-        
+
         // If we reach here, the stream closed but no complete event was found.
         // This could be a network glitch or server timeout. We retry the connection.
       } catch (e: any) {

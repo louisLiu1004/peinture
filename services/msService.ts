@@ -32,13 +32,13 @@ const getBeijingDateString = () => {
 const getTokenStatusStore = (): TokenStatusStore => {
   const defaultStore = { date: getBeijingDateString(), exhausted: {} };
   if (typeof localStorage === 'undefined') return defaultStore;
-  
+
   try {
     const raw = localStorage.getItem(TOKEN_STATUS_KEY);
     if (!raw) return defaultStore;
     const store = JSON.parse(raw);
     if (store.date !== getBeijingDateString()) {
-      return defaultStore; 
+      return defaultStore;
     }
     return store;
   } catch {
@@ -53,7 +53,11 @@ const saveTokenStatusStore = (store: TokenStatusStore) => {
 };
 
 export const getMsTokens = (rawInput?: string | null): string[] => {
-  const input = rawInput !== undefined ? rawInput : (typeof localStorage !== 'undefined' ? localStorage.getItem(TOKEN_STORAGE_KEY) : '');
+  const input = rawInput !== undefined
+    ? rawInput
+    : (typeof localStorage !== 'undefined' ? localStorage.getItem(TOKEN_STORAGE_KEY) : null)
+    || import.meta.env.VITE_MS_TOKEN
+    || '';
   if (!input) return [];
   return input.split(',').map(t => t.trim()).filter(t => t.length > 0);
 };
@@ -84,33 +88,33 @@ const markTokenExhausted = (token: string) => {
 
 const runWithMsTokenRetry = async <T>(operation: (token: string) => Promise<T>): Promise<T> => {
   const tokens = getMsTokens();
-  
+
   if (tokens.length === 0) {
-      throw new Error("error_ms_token_required");
+    throw new Error("error_ms_token_required");
   }
 
   let lastError: any;
   let attempts = 0;
-  const maxAttempts = tokens.length + 1; 
+  const maxAttempts = tokens.length + 1;
 
   while (attempts < maxAttempts) {
     attempts++;
     const token = getNextAvailableToken();
-    
+
     if (!token) {
-       throw new Error("error_ms_token_exhausted");
+      throw new Error("error_ms_token_exhausted");
     }
 
     try {
       return await operation(token);
     } catch (error: any) {
       lastError = error;
-      
+
       if (error.name === 'AbortError') {
         throw error;
       }
 
-      const isQuotaError = 
+      const isQuotaError =
         error.message?.includes("429") ||
         error.status === 429 ||
         error.message?.includes("quota") ||
@@ -127,35 +131,35 @@ const runWithMsTokenRetry = async <T>(operation: (token: string) => Promise<T>):
       throw error;
     }
   }
-  
+
   throw lastError || new Error("error_api_connection");
 };
 
 // --- Dimensions Logic ---
 
 const getBaseDimensions = (ratio: AspectRatioOption) => {
-    switch(ratio) {
-        case "16:9": return { width: 1024, height: 576 };
-        case "4:3": return { width: 1024, height: 768 };
-        case "3:2": return { width: 960, height: 640 };
-        case "9:16": return { width: 576, height: 1024 };
-        case "3:4": return { width: 768, height: 1024 };
-        case "2:3": return { width: 640, height: 960 };
-        case "1:1": default: return { width: 1024, height: 1024 };
-    }
+  switch (ratio) {
+    case "16:9": return { width: 1024, height: 576 };
+    case "4:3": return { width: 1024, height: 768 };
+    case "3:2": return { width: 960, height: 640 };
+    case "9:16": return { width: 576, height: 1024 };
+    case "3:4": return { width: 768, height: 1024 };
+    case "2:3": return { width: 640, height: 960 };
+    case "1:1": default: return { width: 1024, height: 1024 };
+  }
 }
 
 const getDimensions = (ratio: AspectRatioOption, enableHD: boolean): { width: number; height: number } => {
   const base = getBaseDimensions(ratio);
 
   if (enableHD) {
-      // Both Z-Image Turbo and Flux models use 2x multiplier for HD
-      return {
-          width: Math.round(base.width * 2),
-          height: Math.round(base.height * 2)
-      };
+    // Both Z-Image Turbo and Flux models use 2x multiplier for HD
+    return {
+      width: Math.round(base.width * 2),
+      height: Math.round(base.height * 2)
+    };
   }
-  
+
   return base;
 };
 
@@ -172,27 +176,27 @@ export const generateMSImage = async (
 ): Promise<GeneratedImage> => {
   const { width, height } = getDimensions(aspectRatio, enableHD);
   const finalSeed = seed ?? Math.floor(Math.random() * 2147483647);
-  const finalSteps = steps ?? 9; 
+  const finalSteps = steps ?? 9;
   const sizeString = `${width}x${height}`;
 
   // Get the actual API model string from the map
   const apiModel = API_MODEL_MAP.modelscope[model];
   if (!apiModel) {
-      throw new Error(`Model ${model} not supported on Model Scope`);
+    throw new Error(`Model ${model} not supported on Model Scope`);
   }
 
   return runWithMsTokenRetry(async (token) => {
     try {
       const requestBody: any = {
-          prompt,
-          model: apiModel,
-          size: sizeString,
-          seed: finalSeed,
-          steps: finalSteps
+        prompt,
+        model: apiModel,
+        size: sizeString,
+        seed: finalSeed,
+        steps: finalSteps
       };
 
       if (guidanceScale !== undefined) {
-          requestBody.guidance = guidanceScale;
+        requestBody.guidance = guidanceScale;
       }
 
       const response = await fetch(MS_GENERATE_API_URL, {
@@ -210,11 +214,11 @@ export const generateMSImage = async (
       }
 
       const data = await response.json();
-      
+
       const imageUrl = data.images?.[0]?.url;
 
       if (!imageUrl) {
-          throw new Error("error_invalid_response");
+        throw new Error("error_invalid_response");
       }
 
       return {
@@ -248,7 +252,7 @@ export const editImageMS = async (
 ): Promise<GeneratedImage> => {
   // 1. Upload images to Gradio space to get public URLs. 
   // Per requirements: no token used for upload, anonymous access.
-  const uploadedFilenames = await Promise.all(imageBlobs.map(blob => 
+  const uploadedFilenames = await Promise.all(imageBlobs.map(blob =>
     uploadToGradio(QWEN_EDIT_HF_BASE, blob, null, signal)
   ));
   const imageUrls = uploadedFilenames.map(name => `${QWEN_EDIT_HF_FILE_PREFIX}${name}`);
@@ -313,7 +317,7 @@ export const optimizePromptMS = async (originalPrompt: string): Promise<string> 
       // Append the fixed suffix to the user's custom system prompt
       const systemInstruction = getSystemPromptContent() + FIXED_SYSTEM_PROMPT_SUFFIX;
       const apiModel = API_MODEL_MAP.modelscope[model] || model;
-      
+
       const response = await fetch(MS_CHAT_API_URL, {
         method: 'POST',
         headers: {
@@ -337,12 +341,12 @@ export const optimizePromptMS = async (originalPrompt: string): Promise<string> 
       });
 
       if (!response.ok) {
-          throw new Error("error_prompt_optimization_failed");
+        throw new Error("error_prompt_optimization_failed");
       }
 
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content;
-      
+
       return content || originalPrompt;
     } catch (error) {
       console.error("Model Scope Prompt Optimization Error:", error);

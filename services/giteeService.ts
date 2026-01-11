@@ -30,13 +30,13 @@ const getBeijingDateString = () => {
 const getTokenStatusStore = (): TokenStatusStore => {
   const defaultStore = { date: getBeijingDateString(), exhausted: {} };
   if (typeof localStorage === 'undefined') return defaultStore;
-  
+
   try {
     const raw = localStorage.getItem(TOKEN_STATUS_KEY);
     if (!raw) return defaultStore;
     const store = JSON.parse(raw);
     if (store.date !== getBeijingDateString()) {
-      return defaultStore; 
+      return defaultStore;
     }
     return store;
   } catch {
@@ -51,7 +51,11 @@ const saveTokenStatusStore = (store: TokenStatusStore) => {
 };
 
 export const getGiteeTokens = (rawInput?: string | null): string[] => {
-  const input = rawInput !== undefined ? rawInput : (typeof localStorage !== 'undefined' ? localStorage.getItem(TOKEN_STORAGE_KEY) : '');
+  const input = rawInput !== undefined
+    ? rawInput
+    : (typeof localStorage !== 'undefined' ? localStorage.getItem(TOKEN_STORAGE_KEY) : null)
+    || import.meta.env.VITE_GITEE_TOKEN
+    || '';
   if (!input) return [];
   return input.split(',').map(t => t.trim()).filter(t => t.length > 0);
 };
@@ -82,33 +86,33 @@ const markTokenExhausted = (token: string) => {
 
 const runWithGiteeTokenRetry = async <T>(operation: (token: string) => Promise<T>): Promise<T> => {
   const tokens = getGiteeTokens();
-  
+
   if (tokens.length === 0) {
-      throw new Error("error_gitee_token_required");
+    throw new Error("error_gitee_token_required");
   }
 
   let lastError: any;
   let attempts = 0;
-  const maxAttempts = tokens.length + 1; 
+  const maxAttempts = tokens.length + 1;
 
   while (attempts < maxAttempts) {
     attempts++;
     const token = getNextAvailableToken();
-    
+
     if (!token) {
-       throw new Error("error_gitee_token_exhausted");
+      throw new Error("error_gitee_token_exhausted");
     }
 
     try {
       return await operation(token);
     } catch (error: any) {
       lastError = error;
-      
+
       if (error.name === 'AbortError') {
         throw error;
       }
 
-      const isQuotaError = 
+      const isQuotaError =
         error.message?.includes("429") ||
         error.status === 429 ||
         error.message?.includes("quota") ||
@@ -123,37 +127,37 @@ const runWithGiteeTokenRetry = async <T>(operation: (token: string) => Promise<T
       throw error;
     }
   }
-  
+
   throw lastError || new Error("error_api_connection");
 };
 
 // --- Dimensions Logic ---
 
 const getBaseDimensions = (ratio: AspectRatioOption) => {
-    switch(ratio) {
-        case "16:9": return { width: 1024, height: 576 };
-        case "4:3": return { width: 1024, height: 768 };
-        case "3:2": return { width: 960, height: 640 };
-        case "9:16": return { width: 576, height: 1024 };
-        case "3:4": return { width: 768, height: 1024 };
-        case "2:3": return { width: 640, height: 960 };
-        case "1:1": default: return { width: 1024, height: 1024 };
-    }
+  switch (ratio) {
+    case "16:9": return { width: 1024, height: 576 };
+    case "4:3": return { width: 1024, height: 768 };
+    case "3:2": return { width: 960, height: 640 };
+    case "9:16": return { width: 576, height: 1024 };
+    case "3:4": return { width: 768, height: 1024 };
+    case "2:3": return { width: 640, height: 960 };
+    case "1:1": default: return { width: 1024, height: 1024 };
+  }
 }
 
 const getDimensions = (ratio: AspectRatioOption, enableHD: boolean, model: ModelOption): { width: number; height: number } => {
   const base = getBaseDimensions(ratio);
-  
+
   if (!enableHD) return base;
 
   let multiplier = 2; // Default multiplier for Z-Image Turbo
   if (['flux-1-schnell', 'flux-1-krea', 'flux-1', 'flux-2'].includes(model)) {
-      multiplier = 1.5;
+    multiplier = 1.5;
   }
 
   return {
-      width: Math.round(base.width * multiplier),
-      height: Math.round(base.height * multiplier)
+    width: Math.round(base.width * multiplier),
+    height: Math.round(base.height * multiplier)
   };
 };
 
@@ -171,12 +175,12 @@ export const generateGiteeImage = async (
   const { width, height } = getDimensions(aspectRatio, enableHD, model);
   const finalSeed = seed ?? Math.floor(Math.random() * 2147483647);
   // Default steps logic handled in App.tsx, but good to have fallback here
-  const finalSteps = steps ?? 9; 
+  const finalSteps = steps ?? 9;
 
   // Get the actual API model string from the map
   const apiModel = API_MODEL_MAP.gitee[model];
   if (!apiModel) {
-      throw new Error(`Model ${model} not supported on Gitee AI`);
+    throw new Error(`Model ${model} not supported on Gitee AI`);
   }
 
   return runWithGiteeTokenRetry(async (token) => {
@@ -210,7 +214,7 @@ export const generateGiteeImage = async (
       }
 
       const data = await response.json();
-      
+
       if (!data.data || !data.data[0] || !data.data[0].url) {
         throw new Error("error_invalid_response");
       }
@@ -247,7 +251,7 @@ export const editImageGitee = async (
     try {
       const formData = new FormData();
       formData.append('prompt', prompt);
-      
+
       imageBlobs.forEach((blob) => {
         formData.append('image', blob);
       });
@@ -280,7 +284,7 @@ export const editImageGitee = async (
       }
 
       const data = await response.json();
-      
+
       if (!data.data || !data.data[0] || !data.data[0].url) {
         throw new Error("error_invalid_response");
       }
@@ -334,12 +338,12 @@ export const optimizePromptGitee = async (originalPrompt: string): Promise<strin
       });
 
       if (!response.ok) {
-          throw new Error("error_prompt_optimization_failed");
+        throw new Error("error_prompt_optimization_failed");
       }
 
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content;
-      
+
       return content || originalPrompt;
     } catch (error) {
       console.error("Gitee AI Prompt Optimization Error:", error);
@@ -353,8 +357,8 @@ export const optimizePromptGitee = async (originalPrompt: string): Promise<strin
 const VIDEO_NEGATIVE_PROMPT = "Vivid colors, overexposed, static, blurry details, subtitles, style, artwork, painting, image, still, overall grayish tone, worst quality, low quality, JPEG compression artifacts, ugly, incomplete, extra fingers, poorly drawn hands, poorly drawn face, deformed, disfigured, malformed limbs, fused fingers, still image, cluttered background, three legs, many people in the background, walking backward, Screen shaking";
 
 export const createVideoTask = async (
-  imageInput: string | Blob, 
-  width: number, 
+  imageInput: string | Blob,
+  width: number,
   height: number
 ): Promise<string> => {
   return runWithGiteeTokenRetry(async (token) => {
@@ -365,7 +369,7 @@ export const createVideoTask = async (
       const apiModel = API_MODEL_MAP.gitee['wan2_2-i2v'];
 
       const formData = new FormData();
-      formData.append('image', imageInput); 
+      formData.append('image', imageInput);
       formData.append('prompt', settings.prompt);
       formData.append('negative_prompt', VIDEO_NEGATIVE_PROMPT);
       formData.append('model', apiModel);
@@ -399,7 +403,7 @@ export const createVideoTask = async (
   });
 };
 
-export const getGiteeTaskStatus = async (taskId: string): Promise<{status: string, videoUrl?: string, error?: string}> => {
+export const getGiteeTaskStatus = async (taskId: string): Promise<{ status: string, videoUrl?: string, error?: string }> => {
   return runWithGiteeTokenRetry(async (token) => {
     try {
       const response = await fetch(`${GITEE_TASK_STATUS_API_URL}/${taskId}`, {
@@ -412,16 +416,16 @@ export const getGiteeTaskStatus = async (taskId: string): Promise<{status: strin
 
       const data = await response.json();
       // status can be "waiting", "is_process", "success", "failure"
-      
-      const result: {status: string, videoUrl?: string, error?: string} = { status: data.status };
-      
+
+      const result: { status: string, videoUrl?: string, error?: string } = { status: data.status };
+
       if (data.status === 'success' && data.output?.file_url) {
         result.videoUrl = data.output.file_url;
       } else if (data.status === 'failure') {
         result.status = 'failed';
         result.error = data.output?.error || data.output?.message || 'Video generation failed';
       }
-      
+
       return result;
     } catch (error) {
       console.error("Check Task Status Error:", error);

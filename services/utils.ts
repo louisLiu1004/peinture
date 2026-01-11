@@ -2,7 +2,7 @@
 import { CustomProvider, ServiceMode } from "../types";
 
 export function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
@@ -14,19 +14,19 @@ export function generateUUID(): string {
 const SERVICE_MODE_KEY = 'service_mode';
 
 export const getServiceMode = (): ServiceMode => {
-    // If local storage has value, use it.
-    if (typeof localStorage !== 'undefined') {
-        const stored = localStorage.getItem(SERVICE_MODE_KEY);
-        if (stored) return stored as ServiceMode;
-    }
-    // Fallback to Env Var, then default to 'local'
-    return (process.env.VITE_SERVICE_MODE as ServiceMode) || 'local';
+  // If local storage has value, use it.
+  if (typeof localStorage !== 'undefined') {
+    const stored = localStorage.getItem(SERVICE_MODE_KEY);
+    if (stored) return stored as ServiceMode;
+  }
+  // Fallback to Env Var, then default to 'local'
+  return (process.env.VITE_SERVICE_MODE as ServiceMode) || 'local';
 };
 
 export const saveServiceMode = (mode: ServiceMode) => {
-    if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(SERVICE_MODE_KEY, mode);
-    }
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(SERVICE_MODE_KEY, mode);
+  }
 };
 
 // --- System Prompt Management ---
@@ -97,13 +97,13 @@ export const getOptimizationModel = (provider: string): string => {
 
 export const saveOptimizationModel = (provider: string, model: string) => {
   if (typeof localStorage !== 'undefined') {
-      const defaultModel = DEFAULT_OPTIMIZATION_MODELS[provider];
-      // If saving default content or empty, remove the key to fallback to default
-      if (model === defaultModel || !model.trim()) {
-          localStorage.removeItem(OPTIM_MODEL_STORAGE_PREFIX + provider);
-      } else {
-          localStorage.setItem(OPTIM_MODEL_STORAGE_PREFIX + provider, model.trim());
-      }
+    const defaultModel = DEFAULT_OPTIMIZATION_MODELS[provider];
+    // If saving default content or empty, remove the key to fallback to default
+    if (model === defaultModel || !model.trim()) {
+      localStorage.removeItem(OPTIM_MODEL_STORAGE_PREFIX + provider);
+    } else {
+      localStorage.setItem(OPTIM_MODEL_STORAGE_PREFIX + provider, model.trim());
+    }
   }
 };
 
@@ -115,59 +115,94 @@ const TEXT_MODEL_KEY = 'app_text_model_config';
 const UPSCALER_MODEL_KEY = 'app_upscaler_model_config';
 
 export const getEditModelConfig = (): { provider: string, model: string } => {
-    if (typeof localStorage === 'undefined') return { provider: 'huggingface', model: 'qwen-image-edit' };
+  // 1. LocalStorage
+  if (typeof localStorage !== 'undefined') {
     const saved = localStorage.getItem(EDIT_MODEL_KEY);
     if (saved) {
-        const [provider, model] = saved.split(':');
-        return { provider, model };
+      const [provider, model] = saved.split(':');
+      return { provider, model };
     }
-    return { provider: 'huggingface', model: 'qwen-image-edit' };
+  }
+  // 2. Environment Variables
+  const envDefault = import.meta.env.VITE_DEFAULT_EDIT_MODEL;
+  if (envDefault) {
+    const [provider, model] = envDefault.split(':');
+    if (provider && model) return { provider, model };
+  }
+  return { provider: 'huggingface', model: 'qwen-image-edit' };
 };
 
 export const saveEditModelConfig = (value: string) => {
-    if (typeof localStorage !== 'undefined') localStorage.setItem(EDIT_MODEL_KEY, value);
+  if (typeof localStorage !== 'undefined') localStorage.setItem(EDIT_MODEL_KEY, value);
 };
 
 export const getLiveModelConfig = (): { provider: string, model: string } => {
-    if (typeof localStorage === 'undefined') return { provider: 'huggingface', model: 'wan2_2-i2v' };
+  // 1. LocalStorage
+  if (typeof localStorage !== 'undefined') {
     const saved = localStorage.getItem(LIVE_MODEL_KEY);
     if (saved) {
-        const [provider, model] = saved.split(':');
-        return { provider, model };
+      const [provider, model] = saved.split(':');
+      return { provider, model };
     }
-    return { provider: 'huggingface', model: 'wan2_2-i2v' };
+  }
+  // 2. Environment Variables
+  const envDefault = import.meta.env.VITE_DEFAULT_LIVE_MODEL;
+  if (envDefault) {
+    const [provider, model] = envDefault.split(':');
+    if (provider && model) return { provider, model };
+  }
+
+  return { provider: 'huggingface', model: 'wan2_2-i2v' };
 };
 
 export const saveLiveModelConfig = (value: string) => {
-    if (typeof localStorage !== 'undefined') localStorage.setItem(LIVE_MODEL_KEY, value);
+  if (typeof localStorage !== 'undefined') localStorage.setItem(LIVE_MODEL_KEY, value);
 };
 
 export const getTextModelConfig = (): { provider: string, model: string } => {
-    if (typeof localStorage === 'undefined') return { provider: 'huggingface', model: 'openai-fast' };
+  // 1. LocalStorage
+  if (typeof localStorage !== 'undefined') {
     const saved = localStorage.getItem(TEXT_MODEL_KEY);
     if (saved) {
-        const [provider, model] = saved.split(':');
-        return { provider, model };
+      const [provider, model] = saved.split(':');
+      return { provider, model };
     }
-    return { provider: 'huggingface', model: 'openai-fast' };
+  }
+  // 2. Environment Variables
+  const envDefault = import.meta.env.VITE_DEFAULT_TEXT_MODEL;
+  if (envDefault) {
+    const [provider, model] = envDefault.split(':');
+    if (provider && model) return { provider, model };
+  }
+
+  return { provider: 'huggingface', model: 'openai-fast' };
 };
 
 export const saveTextModelConfig = (value: string) => {
-    if (typeof localStorage !== 'undefined') localStorage.setItem(TEXT_MODEL_KEY, value);
+  if (typeof localStorage !== 'undefined') localStorage.setItem(TEXT_MODEL_KEY, value);
 };
 
 export const getUpscalerModelConfig = (): { provider: string, model: string } => {
-    if (typeof localStorage === 'undefined') return { provider: 'huggingface', model: 'RealESRGAN_x4plus' };
+  // 1. LocalStorage
+  if (typeof localStorage !== 'undefined') {
     const saved = localStorage.getItem(UPSCALER_MODEL_KEY);
     if (saved) {
-        const [provider, model] = saved.split(':');
-        return { provider, model };
+      const [provider, model] = saved.split(':');
+      return { provider, model };
     }
-    return { provider: 'huggingface', model: 'RealESRGAN_x4plus' };
+  }
+  // 2. Environment Variables
+  const envDefault = import.meta.env.VITE_DEFAULT_UPSCALE_MODEL;
+  if (envDefault) {
+    const [provider, model] = envDefault.split(':');
+    if (provider && model) return { provider, model };
+  }
+
+  return { provider: 'huggingface', model: 'RealESRGAN_x4plus' };
 };
 
 export const saveUpscalerModelConfig = (value: string) => {
-    if (typeof localStorage !== 'undefined') localStorage.setItem(UPSCALER_MODEL_KEY, value);
+  if (typeof localStorage !== 'undefined') localStorage.setItem(UPSCALER_MODEL_KEY, value);
 };
 
 // --- Video Settings Management ---
@@ -205,7 +240,7 @@ const VIDEO_SETTINGS_STORAGE_PREFIX = 'video_settings_';
 export const getVideoSettings = (provider: string): VideoSettings => {
   const defaults = DEFAULT_VIDEO_SETTINGS[provider] || DEFAULT_VIDEO_SETTINGS['huggingface'];
   if (typeof localStorage === 'undefined') return defaults;
-  
+
   try {
     const raw = localStorage.getItem(VIDEO_SETTINGS_STORAGE_PREFIX + provider);
     if (!raw) return defaults;
@@ -228,37 +263,37 @@ export const saveVideoSettings = (provider: string, settings: VideoSettings) => 
 const CUSTOM_PROVIDERS_KEY = 'app_custom_providers';
 
 export const getCustomProviders = (): CustomProvider[] => {
-    if (typeof localStorage === 'undefined') return [];
-    try {
-        const saved = localStorage.getItem(CUSTOM_PROVIDERS_KEY);
-        return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-        console.error("Failed to load custom providers", e);
-        return [];
-    }
+  if (typeof localStorage === 'undefined') return [];
+  try {
+    const saved = localStorage.getItem(CUSTOM_PROVIDERS_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch (e) {
+    console.error("Failed to load custom providers", e);
+    return [];
+  }
 };
 
 export const saveCustomProviders = (providers: CustomProvider[]) => {
-    if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(CUSTOM_PROVIDERS_KEY, JSON.stringify(providers));
-    }
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(CUSTOM_PROVIDERS_KEY, JSON.stringify(providers));
+  }
 };
 
 export const addCustomProvider = (provider: CustomProvider) => {
-    const current = getCustomProviders();
-    const existingIndex = current.findIndex(p => p.id === provider.id);
-    if (existingIndex >= 0) {
-        current[existingIndex] = provider;
-    } else {
-        current.push(provider);
-    }
-    saveCustomProviders(current);
+  const current = getCustomProviders();
+  const existingIndex = current.findIndex(p => p.id === provider.id);
+  if (existingIndex >= 0) {
+    current[existingIndex] = provider;
+  } else {
+    current.push(provider);
+  }
+  saveCustomProviders(current);
 };
 
 export const removeCustomProvider = (id: string) => {
-    const current = getCustomProviders();
-    const updated = current.filter(p => p.id !== id);
-    saveCustomProviders(updated);
+  const current = getCustomProviders();
+  const updated = current.filter(p => p.id !== id);
+  saveCustomProviders(updated);
 };
 
 // --- Translation Service ---
@@ -266,42 +301,42 @@ export const removeCustomProvider = (id: string) => {
 const POLLINATIONS_API_URL = "https://text.pollinations.ai/openai";
 
 export const translatePrompt = async (text: string): Promise<string> => {
-    try {
-        const systemPrompt = getTranslationPromptContent();
-        
-        const response = await fetch(POLLINATIONS_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                model: 'openai-fast',
-                messages: [
-                    {
-                        role: 'system',
-                        content: systemPrompt
-                    },
-                    {
-                        role: 'user',
-                        content: text
-                    }
-                ],
-                stream: false
-            }),
-        });
+  try {
+    const systemPrompt = getTranslationPromptContent();
 
-        if (!response.ok) {
-            throw new Error("Translation request failed");
-        }
+    const response = await fetch(POLLINATIONS_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'openai-fast',
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: text
+          }
+        ],
+        stream: false
+      }),
+    });
 
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content;
-
-        return content || text;
-    } catch (error) {
-        console.error("Translation Error:", error);
-        throw new Error("error_translation_failed");
+    if (!response.ok) {
+      throw new Error("Translation request failed");
     }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+
+    return content || text;
+  } catch (error) {
+    console.error("Translation Error:", error);
+    throw new Error("error_translation_failed");
+  }
 };
 
 export const optimizeEditPrompt = async (imageBase64: string, prompt: string, model: string = 'openai-fast'): Promise<string> => {
@@ -330,8 +365,8 @@ Only reply with the optimized prompt text. Do not add any conversational content
           {
             role: 'user',
             content: [
-                { type: "text", text: prompt },
-                { type: "image_url", image_url: { url: imageBase64 } }
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: imageBase64 } }
             ]
           }
         ],
@@ -362,29 +397,29 @@ export const getProxyUrl = (url: string) => `https://peinture-proxy.9th.xyz/?url
  * First tries a direct fetch. If that fails (e.g. CORS), falls back to using the proxy.
  */
 export const fetchBlob = async (url: string): Promise<Blob> => {
-    // Handle data/blob URLs locally without fetching
-    if (url.startsWith('data:') || url.startsWith('blob:')) {
-        try {
-            const res = await fetch(url);
-            if (!res.ok) throw new Error(`Local fetch failed: ${res.status}`);
-            return res.blob();
-        } catch (e) {
-            console.warn("Local blob/data URL fetch failed", e);
-            throw new Error("Local resource not found");
-        }
-    }
-
+  // Handle data/blob URLs locally without fetching
+  if (url.startsWith('data:') || url.startsWith('blob:')) {
     try {
-        const response = await fetch(url, { cache: 'no-cache' });
-        if (!response.ok) throw new Error(`Direct fetch failed: ${response.status}`);
-        return await response.blob();
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Local fetch failed: ${res.status}`);
+      return res.blob();
     } catch (e) {
-        console.warn("Direct fetch failed, trying proxy...", e);
-        const proxyUrl = getProxyUrl(url);
-        const proxyResponse = await fetch(proxyUrl);
-        if (!proxyResponse.ok) throw new Error(`Proxy fetch failed: ${proxyResponse.status}`);
-        return await proxyResponse.blob();
+      console.warn("Local blob/data URL fetch failed", e);
+      throw new Error("Local resource not found");
     }
+  }
+
+  try {
+    const response = await fetch(url, { cache: 'no-cache' });
+    if (!response.ok) throw new Error(`Direct fetch failed: ${response.status}`);
+    return await response.blob();
+  } catch (e) {
+    console.warn("Direct fetch failed, trying proxy...", e);
+    const proxyUrl = getProxyUrl(url);
+    const proxyResponse = await fetch(proxyUrl);
+    if (!proxyResponse.ok) throw new Error(`Proxy fetch failed: ${proxyResponse.status}`);
+    return await proxyResponse.blob();
+  }
 };
 
 /**
@@ -393,50 +428,50 @@ export const fetchBlob = async (url: string): Promise<Blob> => {
  * - Mobile: Fetches Blob -> Tries navigator.share -> Falls back to ObjectURL download.
  */
 export const downloadImage = async (url: string, fileName: string) => {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-    if (!isMobile) {
-        // Desktop: Direct download via <a> tag
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    } else {
-        // Mobile: Fetch Blob -> Share -> ObjectURL
+  if (!isMobile) {
+    // Desktop: Direct download via <a> tag
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } else {
+    // Mobile: Fetch Blob -> Share -> ObjectURL
+    try {
+      const blob = await fetchBlob(url);
+      const file = new File([blob], fileName, { type: blob.type });
+      const nav = navigator as any;
+
+      if (nav.canShare && nav.canShare({ files: [file] })) {
         try {
-            const blob = await fetchBlob(url);
-            const file = new File([blob], fileName, { type: blob.type });
-            const nav = navigator as any;
-
-            if (nav.canShare && nav.canShare({ files: [file] })) {
-                try {
-                    await nav.share({
-                        files: [file],
-                        title: 'Peinture Image',
-                    });
-                    return;
-                } catch (e: any) {
-                    if (e.name === 'AbortError') return;
-                    console.warn("Share failed, falling back to download", e);
-                }
-            }
-
-            // Fallback to ObjectURL download
-            const blobUrl = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-
-        } catch (e) {
-            console.error("Download failed", e);
-            // Final fallback: just open in new tab
-            window.open(url, '_blank');
+          await nav.share({
+            files: [file],
+            title: 'Peinture Image',
+          });
+          return;
+        } catch (e: any) {
+          if (e.name === 'AbortError') return;
+          console.warn("Share failed, falling back to download", e);
         }
+      }
+
+      // Fallback to ObjectURL download
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+
+    } catch (e) {
+      console.error("Download failed", e);
+      // Final fallback: just open in new tab
+      window.open(url, '_blank');
     }
+  }
 };
