@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Info as LucideInfo, Eye as LucideEye, EyeOff as LucideEyeOff, Download as LucideDownload, Trash2 as LucideTrash2, X as LucideX, Check as LucideCheck, Loader2 as LucideLoader2, Film as LucideFilm, CloudUpload, Timer, Copy, Check } from 'lucide-react';
+import { Info as LucideInfo, Eye as LucideEye, EyeOff as LucideEyeOff, Download as LucideDownload, Trash2 as LucideTrash2, X as LucideX, Check as LucideCheck, Loader2 as LucideLoader2, Film as LucideFilm, CloudUpload, Timer, Copy, Check, RotateCcw } from 'lucide-react';
 import { Icon4x as CustomIcon4x } from './Icons';
 import { Tooltip } from './Tooltip';
 import { GeneratedImage, ProviderOption } from '../types';
@@ -36,6 +36,7 @@ interface ImageToolbarProps {
     imageDimensions: { width: number, height: number } | null;
     copiedPrompt: boolean;
     handleCopyPrompt: () => void;
+    handleReuseParams?: () => void;
 }
 
 export const ImageToolbar: React.FC<ImageToolbarProps> = ({
@@ -62,7 +63,8 @@ export const ImageToolbar: React.FC<ImageToolbarProps> = ({
     isUploaded,
     imageDimensions,
     copiedPrompt,
-    handleCopyPrompt
+    handleCopyPrompt,
+    handleReuseParams
 }) => {
     const [isStorageEnabled, setIsStorageEnabled] = useState(false);
 
@@ -229,22 +231,36 @@ export const ImageToolbar: React.FC<ImageToolbarProps> = ({
                                 <div>
                                     <div className="flex items-center justify-between mb-1">
                                         <span className="block text-white/40 text-[10px] uppercase tracking-wider font-semibold">{t.prompt}</span>
-                                        <button
-                                            onClick={handleCopyPrompt}
-                                            className="flex items-center gap-1.5 text-[10px] font-medium text-purple-400 hover:text-purple-300 transition-colors"
-                                        >
-                                            {copiedPrompt ? (
-                                                <>
-                                                    <Check className="w-3 h-3" />
-                                                    {t.copied}
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Copy className="w-3 h-3" />
-                                                    {t.copy}
-                                                </>
+                                        <div className="flex items-center gap-3">
+                                            <button
+                                                onClick={handleCopyPrompt}
+                                                className="flex items-center gap-1.5 text-[10px] font-medium text-purple-400 hover:text-purple-300 transition-colors"
+                                            >
+                                                {copiedPrompt ? (
+                                                    <>
+                                                        <Check className="w-3 h-3" />
+                                                        {t.copied}
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Copy className="w-3 h-3" />
+                                                        {t.copy}
+                                                    </>
+                                                )}
+                                            </button>
+                                            {handleReuseParams && (
+                                                <button
+                                                    onClick={() => {
+                                                        handleReuseParams();
+                                                        setShowInfo(false);
+                                                    }}
+                                                    className="flex items-center gap-1.5 text-[10px] font-medium text-green-400 hover:text-green-300 transition-colors"
+                                                >
+                                                    <RotateCcw className="w-3 h-3" />
+                                                    {t.reuseParams}
+                                                </button>
                                             )}
-                                        </button>
+                                        </div>
                                     </div>
                                     <div className="max-h-24 overflow-y-auto custom-scrollbar p-2 bg-black/20 rounded-lg border border-white/5">
                                         <p className="text-xs leading-relaxed text-white/70 italic select-text">{currentImage.prompt}</p>

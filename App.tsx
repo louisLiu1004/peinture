@@ -933,6 +933,45 @@ export default function App() {
         }
     };
 
+    const handleReuseParams = () => {
+        if (!currentImage) return;
+
+        // Set prompt
+        if (currentImage.prompt) {
+            setPrompt(currentImage.prompt);
+        }
+
+        // Set provider if available
+        if (currentImage.provider) {
+            setProvider(currentImage.provider);
+        }
+
+        // Set model if available
+        if (currentImage.model) {
+            setModel(currentImage.model as ModelOption);
+        }
+
+        // Set aspect ratio if available
+        if (currentImage.aspectRatio) {
+            setAspectRatio(currentImage.aspectRatio as AspectRatioOption);
+        }
+
+        // Set seed if available
+        if (currentImage.seed !== undefined) {
+            setSeed(currentImage.seed.toString());
+        }
+
+        // Set steps if available
+        if (currentImage.steps !== undefined) {
+            setSteps(currentImage.steps);
+        }
+
+        // Set guidance scale if available
+        if (currentImage.guidanceScale !== undefined) {
+            setGuidanceScale(currentImage.guidanceScale);
+        }
+    };
+
     const handleLiveClick = async () => {
         if (!currentImage) return;
 
@@ -1359,6 +1398,7 @@ export default function App() {
                                         imageDimensions={imageDimensions}
                                         copiedPrompt={copiedPrompt}
                                         handleCopyPrompt={handleCopyPrompt}
+                                        handleReuseParams={handleReuseParams}
                                     />
                                 )}
                             </div>
