@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Save, KeyRound, Languages, ShieldCheck, ShieldAlert, Database, Eye, EyeOff, MessageSquare, RotateCcw, Settings2, MessageSquareText, Brain, Film, Clock, Layers, Sparkles, HardDrive, Server, Loader2, Check, AlertCircle, PlugZap, Cpu, ChevronDown, ChevronUp, Plus, Trash2, Globe, ChevronRight, Github, Router } from 'lucide-react';
+import { X, Save, KeyRound, Languages, ShieldCheck, ShieldAlert, Database, Eye, EyeOff, MessageSquare, RotateCcw, Settings2, MessageSquareText, Brain, Film, Clock, Layers, Sparkles, HardDrive, Server, Loader2, Check, AlertCircle, PlugZap, Cpu, ChevronDown, ChevronUp, Plus, Trash2, Globe, ChevronLeft, ChevronRight, Github, Router } from 'lucide-react';
 import { Language } from '../translations';
 import { getTokenStats } from '../services/hfService';
 
@@ -76,6 +76,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
     const [activeTab, setActiveTab] = useState<'general' | 'provider' | 'models' | 'prompt' | 'live' | 's3' | 'webdav'>('general');
     const tabsRef = useRef<HTMLDivElement>(null);
     const [canScrollTabs, setCanScrollTabs] = useState(false);
+    const [canScrollTabsLeft, setCanScrollTabsLeft] = useState(false);
 
     // Provider Collapse State
     const [openProvider, setOpenProvider] = useState<string>('huggingface');
@@ -320,6 +321,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
         if (tabsRef.current) {
             const { scrollLeft, scrollWidth, clientWidth } = tabsRef.current;
             // Use a small tolerance (5px)
+            setCanScrollTabsLeft(scrollLeft > 5);
             setCanScrollTabs(scrollLeft + clientWidth < scrollWidth - 5);
         }
     };
@@ -328,6 +330,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
         window.addEventListener('resize', checkTabsScroll);
         return () => window.removeEventListener('resize', checkTabsScroll);
     }, []);
+
+    const handleScrollTabsLeft = () => {
+        if (tabsRef.current) {
+            tabsRef.current.scrollBy({ left: -150, behavior: 'smooth' });
+            setTimeout(checkTabsScroll, 300);
+        }
+    };
 
     const handleScrollTabsRight = () => {
         if (tabsRef.current) {
@@ -775,12 +784,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                     </button>
                 </div>
 
-                {/* Tab Navigation with Scroll Button */}
+                {/* Tab Navigation with Scroll Buttons */}
                 <div className="relative border-b border-white/[0.06]">
+                    {/* Left Scroll Button */}
+                    <div className={`absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-[#0D0B14] via-[#0D0B14]/80 to-transparent flex items-center justify-center pointer-events-none z-10 transition-opacity duration-300 ${canScrollTabsLeft ? 'opacity-100' : 'opacity-0'}`}>
+                        <button
+                            onClick={handleScrollTabsLeft}
+                            disabled={!canScrollTabsLeft}
+                            className={`pointer-events-auto p-1.5 rounded-full transition-all duration-300 ${canScrollTabsLeft ? 'text-white bg-white/10 hover:bg-white/20 shadow-lg' : 'text-white/20'}`}
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                    </div>
                     <div
                         ref={tabsRef}
                         onScroll={checkTabsScroll}
-                        className="flex items-center px-5 space-x-6 overflow-x-auto scrollbar-hide pr-12"
+                        className="flex items-center px-5 space-x-6 overflow-x-auto scrollbar-hide pl-12 pr-12"
                     >
                         {tabs.map((tab) => (
                             <button
@@ -795,7 +814,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, l
                         ))}
                     </div>
                     {/* Right Scroll Button */}
-                    <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#0D0B14] via-[#0D0B14]/80 to-transparent flex items-center justify-center pointer-events-none">
+                    <div className={`absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#0D0B14] via-[#0D0B14]/80 to-transparent flex items-center justify-center pointer-events-none transition-opacity duration-300 ${canScrollTabs ? 'opacity-100' : 'opacity-0'}`}>
                         <button
                             onClick={handleScrollTabsRight}
                             disabled={!canScrollTabs}
