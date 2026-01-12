@@ -14,7 +14,9 @@ import {
     deleteImageFromDB,
     updateImageInDB,
     migrateFromLocalStorage,
-    isIndexedDBAvailable
+    isIndexedDBAvailable,
+    saveReferenceImagesToDB,
+    getReferenceImagesFromDB
 } from './services/indexedDBService';
 import { GeneratedImage, AspectRatioOption, ModelOption, ProviderOption, CloudImage, CustomProvider, ServiceMode, ImageSizeOption } from './types';
 import { HistoryGallery } from './components/HistoryGallery';
@@ -36,6 +38,8 @@ import { ControlPanel } from './components/ControlPanel';
 import { PreviewStage } from './components/PreviewStage';
 import { ImageToolbar } from './components/ImageToolbar';
 import { Tooltip } from './components/Tooltip';
+import { ReferenceImageUploader } from './components/ReferenceImageUploader';
+import { SimpleImageEditor } from './components/SimpleImageEditor';
 
 // Memoize Header to prevent re-renders when App re-renders (e.g. timer)
 const MemoizedHeader = memo(Header);
@@ -143,6 +147,42 @@ export default function App() {
 
     // --- Persistence Logic End ---
     const [autoTranslate, setAutoTranslate] = useState<boolean>(false);
+
+    // Reference Images State (Image-to-Image)
+    const [referenceImages, setReferenceImages] = useState<string[]>([]);
+    const [editingImageIndex, setEditingImageIndex] = useState<number | null>(null);
+    // Track if reference images have been loaded from IndexedDB
+    const [referenceImagesLoaded, setReferenceImagesLoaded] = useState<boolean>(false);
+
+    // Load reference images from IndexedDB on mount
+    useEffect(() => {
+        const loadReferenceImages = async () => {
+            if (!isIndexedDBAvailable()) {
+                setReferenceImagesLoaded(true);
+                return;
+            }
+            try {
+                await initDB();
+                const images = await getReferenceImagesFromDB();
+                setReferenceImages(images);
+            } catch (e) {
+                console.error('Failed to load reference images from IndexedDB', e);
+            } finally {
+                setReferenceImagesLoaded(true);
+            }
+        };
+        loadReferenceImages();
+    }, []);
+
+    // Persist reference images to IndexedDB (only after initial load is complete)
+    useEffect(() => {
+        if (!isIndexedDBAvailable()) return;
+        // Skip saving until initial load is complete to prevent overwriting stored data
+        if (!referenceImagesLoaded) return;
+        saveReferenceImagesToDB(referenceImages).catch(e =>
+            console.error('Failed to save reference images to IndexedDB', e)
+        );
+    }, [referenceImages, referenceImagesLoaded]);
 
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [isTranslating, setIsTranslating] = useState<boolean>(false);
@@ -635,9 +675,9 @@ export default function App() {
                     // Get model capabilities for OpenRouter
                     const modelConfig = getOpenRouterModelConfig(model);
                     const imageSizeParam = modelConfig?.capabilities.imageSize ? imageSize : undefined;
-                    result = await generateOpenRouterImage(model, finalPrompt, aspectRatio, seedNumber, imageSizeParam);
+                    result = await generateOpenRouterImage(model, finalPrompt, aspectRatio, seedNumber, imageSizeParam, referenceImages.length > 0 ? referenceImages : undefined);
                 } else if (provider === 'openai-compat') {
-                    result = await generateOpenAICompatImage(model, finalPrompt, aspectRatio, seedNumber, imageSize);
+                    result = await generateOpenAICompatImage(model, finalPrompt, aspectRatio, seedNumber, imageSize, referenceImages.length > 0 ? referenceImages : undefined);
                 } else {
                     // Custom Provider
                     const customProviders = getCustomProviders();
@@ -699,10 +739,11 @@ export default function App() {
             const successfulImages = results.filter((img): img is GeneratedImage => img !== null);
 
             if (successfulImages.length > 0) {
-                // Add groupImages reference to each image
+                // Add groupImages reference and referenceImages to each image
                 const imagesWithGroup = successfulImages.map(img => ({
                     ...img,
-                    groupImages: successfulImages
+                    groupImages: successfulImages,
+                    referenceImages: referenceImages.length > 0 ? [...referenceImages] : undefined
                 }));
 
                 // Set first successful image as current
@@ -969,6 +1010,11 @@ export default function App() {
         // Set guidance scale if available
         if (currentImage.guidanceScale !== undefined) {
             setGuidanceScale(currentImage.guidanceScale);
+        }
+
+        // Set reference images if available
+        if (currentImage.referenceImages && currentImage.referenceImages.length > 0) {
+            setReferenceImages(currentImage.referenceImages);
         }
     };
 
@@ -1246,6 +1292,16 @@ export default function App() {
                             <div className="flex-grow space-y-4 md:space-y-6">
                                 <div className="relative z-10 bg-black/20 p-4 md:p-6 rounded-xl backdrop-blur-xl border border-white/10 flex flex-col gap-4 md:gap-6 shadow-2xl shadow-black/20">
 
+                                    {/* Reference Image Uploader (Image-to-Image) */}
+                                    <ReferenceImageUploader
+                                        images={referenceImages}
+                                        setImages={setReferenceImages}
+                                        onEditImage={(index) => setEditingImageIndex(index)}
+                                        t={t}
+                                        maxImages={4}
+                                        disabled={isLoading}
+                                    />
+
                                     {/* Prompt Input Component */}
                                     <PromptInput
                                         prompt={prompt}
@@ -1496,6 +1552,21 @@ export default function App() {
                             </div>
                         </div>
                     </div>
+                )}
+
+                {/* Simple Image Editor Modal for Reference Images */}
+                {editingImageIndex !== null && referenceImages[editingImageIndex] && (
+                    <SimpleImageEditor
+                        image={referenceImages[editingImageIndex]}
+                        onSave={(editedImage) => {
+                            const newImages = [...referenceImages];
+                            newImages[editingImageIndex] = editedImage;
+                            setReferenceImages(newImages);
+                            setEditingImageIndex(null);
+                        }}
+                        onClose={() => setEditingImageIndex(null)}
+                        t={t}
+                    />
                 )}
             </div>
         </div>

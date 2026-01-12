@@ -1,8 +1,9 @@
 import { GeneratedImage } from '../types';
 
 const DB_NAME = 'peinture_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const IMAGES_STORE = 'images';
+const REFERENCE_IMAGES_STORE = 'reference_images';
 
 interface StoredImage {
     id: string;
@@ -38,11 +39,16 @@ export const initDB = (): Promise<IDBDatabase> => {
 
         request.onupgradeneeded = (event) => {
             const db = (event.target as IDBOpenDBRequest).result;
-            
+
             // Create images store with index on timestamp
             if (!db.objectStoreNames.contains(IMAGES_STORE)) {
                 const store = db.createObjectStore(IMAGES_STORE, { keyPath: 'id' });
                 store.createIndex('timestamp', 'metadata.timestamp', { unique: false });
+            }
+
+            // Create reference images store (DB_VERSION >= 2)
+            if (!db.objectStoreNames.contains(REFERENCE_IMAGES_STORE)) {
+                db.createObjectStore(REFERENCE_IMAGES_STORE, { keyPath: 'key' });
             }
         };
     });
@@ -57,7 +63,7 @@ const urlToBlob = async (url: string): Promise<Blob | null> => {
             const response = await fetch(url);
             return await response.blob();
         }
-        
+
         if (url.startsWith('data:')) {
             // Convert base64 to blob
             const response = await fetch(url);
@@ -77,13 +83,13 @@ const urlToBlob = async (url: string): Promise<Blob | null> => {
 // Save image to IndexedDB
 export const saveImageToDB = async (image: GeneratedImage): Promise<void> => {
     const db = await initDB();
-    
+
     // Convert image URL to blob
     let imageBlob: Blob | null = null;
     let videoBlob: Blob | null = null;
 
     imageBlob = await urlToBlob(image.url);
-    
+
     if (image.videoUrl) {
         videoBlob = await urlToBlob(image.videoUrl);
     }
@@ -113,7 +119,7 @@ export const saveImageToDB = async (image: GeneratedImage): Promise<void> => {
             console.error('Failed to save image:', request.error);
             reject(request.error);
         };
-        
+
         request.onsuccess = () => resolve();
     });
 };
@@ -121,7 +127,7 @@ export const saveImageToDB = async (image: GeneratedImage): Promise<void> => {
 // Get all images from IndexedDB
 export const getAllImagesFromDB = async (): Promise<GeneratedImage[]> => {
     const db = await initDB();
-    
+
     return new Promise((resolve, reject) => {
         const transaction = db.transaction([IMAGES_STORE], 'readonly');
         const store = transaction.objectStore(IMAGES_STORE);
@@ -140,10 +146,10 @@ export const getAllImagesFromDB = async (): Promise<GeneratedImage[]> => {
 
         request.onsuccess = (event) => {
             const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
-            
+
             if (cursor) {
                 const stored = cursor.value as StoredImage;
-                
+
                 // Check expiration
                 if ((now - stored.metadata.timestamp) >= oneDayInMs) {
                     expiredIds.push(stored.id);
@@ -168,7 +174,7 @@ export const getAllImagesFromDB = async (): Promise<GeneratedImage[]> => {
 
                     images.push(image);
                 }
-                
+
                 cursor.continue();
             } else {
                 // Done iterating, clean up expired images
@@ -184,7 +190,7 @@ export const getAllImagesFromDB = async (): Promise<GeneratedImage[]> => {
 // Delete image from IndexedDB
 export const deleteImageFromDB = async (id: string): Promise<void> => {
     const db = await initDB();
-    
+
     return new Promise((resolve, reject) => {
         const transaction = db.transaction([IMAGES_STORE], 'readwrite');
         const store = transaction.objectStore(IMAGES_STORE);
@@ -194,7 +200,7 @@ export const deleteImageFromDB = async (id: string): Promise<void> => {
             console.error('Failed to delete image:', request.error);
             reject(request.error);
         };
-        
+
         request.onsuccess = () => resolve();
     });
 };
@@ -202,11 +208,11 @@ export const deleteImageFromDB = async (id: string): Promise<void> => {
 // Delete multiple images
 export const deleteMultipleImagesFromDB = async (ids: string[]): Promise<void> => {
     const db = await initDB();
-    
+
     return new Promise((resolve, reject) => {
         const transaction = db.transaction([IMAGES_STORE], 'readwrite');
         const store = transaction.objectStore(IMAGES_STORE);
-        
+
         let completed = 0;
         let hasError = false;
 
@@ -233,7 +239,7 @@ export const deleteMultipleImagesFromDB = async (ids: string[]): Promise<void> =
 // Update image in IndexedDB
 export const updateImageInDB = async (id: string, updates: Partial<GeneratedImage>): Promise<void> => {
     const db = await initDB();
-    
+
     return new Promise((resolve, reject) => {
         const transaction = db.transaction([IMAGES_STORE], 'readwrite');
         const store = transaction.objectStore(IMAGES_STORE);
@@ -296,7 +302,7 @@ export const updateImageInDB = async (id: string, updates: Partial<GeneratedImag
 // Migrate data from localStorage to IndexedDB
 export const migrateFromLocalStorage = async (): Promise<void> => {
     const LEGACY_KEY = 'ai_image_gen_history';
-    
+
     try {
         const saved = localStorage.getItem(LEGACY_KEY);
         if (!saved) return;
@@ -326,7 +332,7 @@ export const migrateFromLocalStorage = async (): Promise<void> => {
 // Clear all images from IndexedDB
 export const clearAllImagesFromDB = async (): Promise<void> => {
     const db = await initDB();
-    
+
     return new Promise((resolve, reject) => {
         const transaction = db.transaction([IMAGES_STORE], 'readwrite');
         const store = transaction.objectStore(IMAGES_STORE);
@@ -344,4 +350,74 @@ export const isIndexedDBAvailable = (): boolean => {
     } catch (e) {
         return false;
     }
+};
+
+// ==================== Reference Images Functions ====================
+
+interface StoredReferenceImages {
+    key: string;
+    images: string[]; // base64 data URLs
+}
+
+// Save reference images to IndexedDB
+export const saveReferenceImagesToDB = async (images: string[]): Promise<void> => {
+    const db = await initDB();
+
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([REFERENCE_IMAGES_STORE], 'readwrite');
+        const store = transaction.objectStore(REFERENCE_IMAGES_STORE);
+
+        const data: StoredReferenceImages = {
+            key: 'current',
+            images
+        };
+
+        const request = store.put(data);
+
+        request.onerror = () => {
+            console.error('Failed to save reference images:', request.error);
+            reject(request.error);
+        };
+
+        request.onsuccess = () => resolve();
+    });
+};
+
+// Get reference images from IndexedDB
+export const getReferenceImagesFromDB = async (): Promise<string[]> => {
+    const db = await initDB();
+
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([REFERENCE_IMAGES_STORE], 'readonly');
+        const store = transaction.objectStore(REFERENCE_IMAGES_STORE);
+        const request = store.get('current');
+
+        request.onerror = () => {
+            console.error('Failed to get reference images:', request.error);
+            reject(request.error);
+        };
+
+        request.onsuccess = () => {
+            const result = request.result as StoredReferenceImages | undefined;
+            resolve(result?.images || []);
+        };
+    });
+};
+
+// Clear reference images from IndexedDB
+export const clearReferenceImagesFromDB = async (): Promise<void> => {
+    const db = await initDB();
+
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([REFERENCE_IMAGES_STORE], 'readwrite');
+        const store = transaction.objectStore(REFERENCE_IMAGES_STORE);
+        const request = store.delete('current');
+
+        request.onerror = () => {
+            console.error('Failed to clear reference images:', request.error);
+            reject(request.error);
+        };
+
+        request.onsuccess = () => resolve();
+    });
 };

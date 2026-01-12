@@ -266,6 +266,28 @@ export const ImageToolbar: React.FC<ImageToolbarProps> = ({
                                         <p className="text-xs leading-relaxed text-white/70 italic select-text">{currentImage.prompt}</p>
                                     </div>
                                 </div>
+                                {/* Reference Images Section (Image-to-Image) */}
+                                {currentImage.referenceImages && currentImage.referenceImages.length > 0 && (
+                                    <div>
+                                        <span className="block text-white/40 text-[10px] uppercase tracking-wider font-semibold mb-2">
+                                            {t.ref_images || 'Reference Images'} ({currentImage.referenceImages.length})
+                                        </span>
+                                        <div className="grid grid-cols-4 gap-2">
+                                            {currentImage.referenceImages.map((img, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    className="aspect-square rounded-lg overflow-hidden border border-white/10 bg-black/20"
+                                                >
+                                                    <img
+                                                        src={img}
+                                                        alt={`Reference ${idx + 1}`}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}

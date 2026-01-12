@@ -143,7 +143,8 @@ export const generateOpenAICompatImage = async (
   prompt: string,
   aspectRatio: AspectRatioOption,
   seed?: number,
-  imageSize?: ImageSizeOption
+  imageSize?: ImageSizeOption,
+  referenceImages?: string[]  // New: base64 reference images for image-to-image
 ): Promise<GeneratedImage> => {
   const token = getOpenAICompatToken();
   if (!token) throw new Error("error_openai_compat_token_missing");
@@ -151,13 +152,31 @@ export const generateOpenAICompatImage = async (
   const apiUrl = getOpenAICompatApiUrl();
   ensureApiUrl(apiUrl);
 
+  // Build message content - use multimodal format if reference images exist
+  let messageContent: any;
+  if (referenceImages && referenceImages.length > 0) {
+    // Multimodal content format for image-to-image
+    const contentBlocks: any[] = [];
+    referenceImages.forEach(base64 => {
+      contentBlocks.push({
+        type: 'image_url',
+        image_url: { url: base64 }
+      });
+    });
+    contentBlocks.push({ type: 'text', text: prompt });
+    messageContent = contentBlocks;
+  } else {
+    // Simple text prompt for text-to-image
+    messageContent = prompt;
+  }
+
   const response = await fetch(apiUrl, {
     method: 'POST',
     headers: buildHeaders(token),
     body: JSON.stringify({
       model,
       messages: [
-        { role: 'user', content: prompt }
+        { role: 'user', content: messageContent }
       ],
       // Optional: aspect ratio as metadata (some gateways honor it)
       metadata: { aspect_ratio: aspectRatio, image_size: imageSize },

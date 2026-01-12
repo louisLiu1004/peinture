@@ -342,6 +342,18 @@ export const translations = {
     toggle_nsfw: "Toggle NSFW",
     mark_nsfw: "Mark as NSFW",
     unmark_nsfw: "Unmark NSFW",
+
+    // Reference Images (Image-to-Image)
+    ref_images: "Reference Images",
+    edit_image: "Edit",
+    remove_image: "Remove",
+    ref_image_editor_title: "Edit Reference Image",
+    save_and_close: "Save",
+    zoom_in: "Zoom In",
+    zoom_out: "Zoom Out",
+    zoom_reset: "Reset View",
+    undo: "Undo",
+    redo: "Redo",
   },
   zh: {
     appTitle: "派奇智图",
@@ -622,7 +634,7 @@ export const translations = {
     re_edit: "返回",
 
     // New Editor Strings
-    upload_ref_image: "上传参考图片",
+    upload_ref_image: "参考图片",
     ref_image_n: "参考图片 {n}",
     prompt_original_image: "第1张图片是原始图片。",
     prompt_edit_layer: "第{n}张图片包含了用户的编辑操作信息，所有的修改都在此图层进行。",
@@ -683,5 +695,17 @@ export const translations = {
     toggle_nsfw: "标记为 NSFW",
     mark_nsfw: "标记为 NSFW",
     unmark_nsfw: "取消 NSFW 标记",
+
+    // Reference Images (Image-to-Image)
+    ref_images: "参考图片",
+    edit_image: "编辑",
+    remove_image: "移除",
+    ref_image_editor_title: "编辑参考图片",
+    save_and_close: "保存",
+    zoom_in: "放大",
+    zoom_out: "缩小",
+    zoom_reset: "重置视图",
+    undo: "撤销",
+    redo: "重做",
   }
 };

@@ -26,6 +26,8 @@ export interface GeneratedImage {
     groupId?: string; // ID to group batch-generated images
     groupImages?: GeneratedImage[]; // Array of images in a batch group
     groupIndex?: number; // Index of this image within the batch (0-based)
+    // Image-to-Image Generation Properties
+    referenceImages?: string[]; // Base64 encoded reference images for image-to-image generation
 }
 
 export interface CloudImage {

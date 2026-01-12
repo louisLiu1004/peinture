@@ -55,7 +55,7 @@ export const hasEnvOpenRouterApiUrl = (): boolean => {
 export const getOpenRouterToken = (): string => {
   // 在代理模式下，不需要前端提供 Token（返回占位符）
   if (shouldUseProxy()) return 'PROXY_MODE';
-  
+
   if (typeof localStorage === 'undefined') return ENV_OPENROUTER_API_KEY;
   // 优先使用用户在前端填写的 Token，其次使用环境变量配置的 Token
   const userToken = localStorage.getItem(TOKEN_STORAGE_KEY) || '';
@@ -79,12 +79,12 @@ const buildHeaders = (token: string) => ({
 // Helper function to extract image URL from OpenRouter response
 const extractImageFromResponse = (data: any): string => {
   const messageContent = data.choices?.[0]?.message?.content;
-  
+
   let imageUrl = '';
-  
+
   // Check if content is array (multimodal response)
   if (Array.isArray(messageContent)) {
-    const imageBlock = messageContent.find((block: any) => 
+    const imageBlock = messageContent.find((block: any) =>
       block.type === 'image_url' || block.type === 'image'
     );
     if (imageBlock) {
@@ -97,7 +97,7 @@ const extractImageFromResponse = (data: any): string => {
       imageUrl = images[0].image_url?.url || images[0].url || images[0];
     }
   }
-  
+
   return imageUrl;
 };
 
@@ -116,15 +116,34 @@ export const generateOpenRouterImage = async (
   prompt: string,
   aspectRatio: AspectRatioOption,
   seed?: number,
-  imageSize?: ImageSizeOption
+  imageSize?: ImageSizeOption,
+  referenceImages?: string[]  // New: base64 reference images for image-to-image
 ): Promise<GeneratedImage> => {
   const token = getOpenRouterToken();
-  
+
   if (!token) {
     throw new Error("error_openrouter_token_missing");
   }
 
   try {
+    // Build message content - use multimodal format if reference images exist
+    let messageContent: any;
+    if (referenceImages && referenceImages.length > 0) {
+      // Multimodal content format for image-to-image
+      const contentBlocks: any[] = [];
+      referenceImages.forEach(base64 => {
+        contentBlocks.push({
+          type: 'image_url',
+          image_url: { url: base64 }
+        });
+      });
+      contentBlocks.push({ type: 'text', text: prompt });
+      messageContent = contentBlocks;
+    } else {
+      // Simple text prompt for text-to-image
+      messageContent = prompt;
+    }
+
     const response = await fetch(getOpenRouterApiUrl(), {
       method: 'POST',
       headers: buildHeaders(token),
@@ -133,7 +152,7 @@ export const generateOpenRouterImage = async (
         messages: [
           {
             role: 'user',
-            content: prompt
+            content: messageContent
           }
         ],
         // OpenRouter image generation requires modalities parameter
@@ -158,10 +177,10 @@ export const generateOpenRouterImage = async (
     }
 
     const data = await response.json();
-    
+
     // Extract image from response using helper function
     const imageUrl = extractImageFromResponse(data);
-    
+
     if (!imageUrl) {
       throw new Error("error_invalid_response");
     }
@@ -190,7 +209,7 @@ export const editImageOpenRouter = async (
   signal?: AbortSignal
 ): Promise<GeneratedImage> => {
   const token = getOpenRouterToken();
-  
+
   if (!token) {
     throw new Error("error_openrouter_token_missing");
   }
@@ -200,11 +219,11 @@ export const editImageOpenRouter = async (
     const imageBase64List = await Promise.all(
       imageBlobs.map(blob => blobToBase64(blob))
     );
-    
+
     // Build multimodal content array
     // Format: array of content blocks with text and images
     const contentBlocks: any[] = [];
-    
+
     // Add images first
     imageBase64List.forEach((base64, index) => {
       contentBlocks.push({
@@ -214,7 +233,7 @@ export const editImageOpenRouter = async (
         }
       });
     });
-    
+
     // Add text prompt
     contentBlocks.push({
       type: 'text',
@@ -249,10 +268,10 @@ export const editImageOpenRouter = async (
     }
 
     const data = await response.json();
-    
+
     // Extract image from response using helper function
     const imageUrl = extractImageFromResponse(data);
-    
+
     if (!imageUrl) {
       throw new Error("error_invalid_response");
     }
