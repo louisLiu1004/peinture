@@ -32,7 +32,7 @@ import {
     RotateCcw,
     Lock,
 } from 'lucide-react';
-import { getModelConfig, getGuidanceScaleConfig, FLUX_MODELS, HF_MODEL_OPTIONS, LIVE_MODELS, getOpenRouterModelConfig, OPENAI_COMPAT_MODEL_OPTIONS, getOpenAICompatModelConfig } from './constants';
+import { getModelConfig, getGuidanceScaleConfig, FLUX_MODELS, LIVE_MODELS, getOpenRouterModelConfig, OPENAI_COMPAT_MODEL_OPTIONS, getOpenAICompatModelConfig } from './constants';
 import { PromptInput } from './components/PromptInput';
 import { ControlPanel } from './components/ControlPanel';
 import { PreviewStage } from './components/PreviewStage';
@@ -77,16 +77,18 @@ export default function App() {
     // --- Persistence Logic Start ---
 
     const [provider, setProvider] = useState<ProviderOption>(() => {
-        if (typeof localStorage === 'undefined') return 'huggingface';
+        if (typeof localStorage === 'undefined') return 'openrouter';
         const saved = localStorage.getItem('app_provider') as ProviderOption;
-        return saved || 'huggingface';
+        // If saved was huggingface, force fallback
+        if (saved === 'huggingface') return 'openrouter';
+        return saved || 'openrouter';
     });
 
     const [model, setModel] = useState<ModelOption>(() => {
-        let effectiveProvider: ProviderOption = 'huggingface';
+        let effectiveProvider: ProviderOption = 'openrouter';
         if (typeof localStorage !== 'undefined') {
             const savedProvider = localStorage.getItem('app_provider') as ProviderOption;
-            if (savedProvider) {
+            if (savedProvider && savedProvider !== 'huggingface') {
                 effectiveProvider = savedProvider;
             }
         }
@@ -97,7 +99,9 @@ export default function App() {
         // For custom providers, we blindly trust the saved model ID if the provider matches a custom ID
         if (savedModel) return savedModel as ModelOption;
 
-        return HF_MODEL_OPTIONS[0].value as ModelOption;
+        // Default to first OpenRouter model
+        const defaultOpenRouter = getOpenRouterModelConfig('google/gemini-3-pro-image-preview');
+        return defaultOpenRouter ? defaultOpenRouter.value : 'google/gemini-3-pro-image-preview';
     });
 
     const [aspectRatio, setAspectRatio] = useState<AspectRatioOption>(() => {
@@ -399,17 +403,22 @@ export default function App() {
         saveServiceMode('local');
         window.dispatchEvent(new Event("storage"));
         setShowPasswordModal(false);
-        // Reset to defaults
-        setProvider('huggingface');
-        setModel(HF_MODEL_OPTIONS[0].value);
+        // Reset to defaults (OpenRouter)
+        setProvider('openrouter');
+        setModel('google/gemini-3-pro-image-preview');
     };
 
     // Handle initialization/reset of model when switching to creation view
     useEffect(() => {
         if (currentView === 'creation') {
             let options: { value: string; label: string }[] = [];
-            if (provider === 'huggingface') options = HF_MODEL_OPTIONS;
-            else {
+            if (provider === 'openrouter') {
+                // We don't have a static list handy here easily without import loop or duplication,
+                // but checking if model is valid is good.
+                // For now, let's skip strict validation for OpenRouter or assume valid if set.
+                // Or better, just rely on custom logic below or skip HF check.
+            }
+            else if (provider !== 'openrouter' && provider !== 'openai-compat') {
                 // Custom provider
                 const customProviders = getCustomProviders();
                 const activeCustom = customProviders.find(p => p.id === provider);
@@ -774,16 +783,16 @@ export default function App() {
 
     const handleReset = () => {
         setPrompt('');
-        if (provider === 'huggingface') {
-            setModel(HF_MODEL_OPTIONS[0].value as ModelOption);
+        // Default to OpenRouter or Custom
+        const customProviders = getCustomProviders();
+        if (customProviders.length > 0 && customProviders[0].models?.generate?.length > 0) {
+            setProvider(customProviders[0].id);
+            setModel(customProviders[0].models.generate[0].id as ModelOption);
         } else {
-            // Custom
-            const customProviders = getCustomProviders();
-            const activeCustom = customProviders.find(p => p.id === provider);
-            if (activeCustom?.models?.generate && activeCustom.models.generate.length > 0) {
-                setModel(activeCustom.models.generate[0].id as ModelOption);
-            }
+            setProvider('openrouter');
+            setModel('google/gemini-3-pro-image-preview');
         }
+
         setAspectRatio('1:1');
         setSeed('');
         const config = getModelConfig(provider, model);
@@ -805,10 +814,9 @@ export default function App() {
 
             let newUrl = '';
 
-            if (config.provider === 'huggingface') {
-                // Default HF logic (RealESRGAN)
-                const result = await upscaler(currentImage.url);
-                newUrl = result.url;
+            if (config.provider === 'openrouter') {
+                // OpenRouter Upscale not yet implemented in this snippet, using placeholder or error
+                throw new Error("Upscaling not supported for this provider yet.");
             } else {
                 // Check for Custom Provider
                 const customProviders = getCustomProviders();
@@ -818,9 +826,7 @@ export default function App() {
                     const result = await upscaleImageCustom(activeProvider, config.model, currentImage.url);
                     newUrl = result.url;
                 } else {
-                    // Fallback to HF
-                    const result = await upscaler(currentImage.url);
-                    newUrl = result.url;
+                    throw new Error("Upscaling not supported for this provider.");
                 }
             }
 
@@ -872,11 +878,7 @@ export default function App() {
             const config = getTextModelConfig(); // { provider, model }
             let optimized = '';
 
-            if (config.provider === 'huggingface') {
-                // Default HF uses simple internal logic or Pollinations
-                const { optimizePrompt } = await import('./services/hfService');
-                optimized = await optimizePrompt(prompt);
-            } else if (config.provider === 'openrouter') {
+            if (config.provider === 'openrouter') {
                 optimized = await optimizePromptOpenRouter(prompt, config.model);
             } else if (config.provider === 'openai-compat') {
                 optimized = await optimizePromptOpenAICompat(prompt, config.model);
@@ -888,8 +890,7 @@ export default function App() {
                     optimized = await optimizePromptCustom(activeProvider, config.model, prompt);
                 } else {
                     // Fallback
-                    const { optimizePrompt } = await import('./services/hfService');
-                    optimized = await optimizePrompt(prompt);
+                    throw new Error("Optimization not supported for this provider.");
                 }
             }
             setPrompt(optimized);
@@ -1089,16 +1090,7 @@ export default function App() {
             setHistory(prev => prev.map(img => img.id === loadingImage.id ? loadingImage : img));
 
             if (currentVideoProvider === 'huggingface') {
-                // HF: Create Task handles the waiting internally (Long Connection)
-                const videoUrl = await createVideoTaskHF(imageInput, currentImage.seed);
-                // Success
-                const successImage = { ...loadingImage, videoStatus: 'success', videoUrl } as GeneratedImage;
-                setHistory(prev => prev.map(img => img.id === successImage.id ? successImage : img));
-                setCurrentImage(prev => (prev && prev.id === successImage.id) ? successImage : prev);
-
-                if (currentImageRef.current?.id === successImage.id) {
-                    setIsLiveMode(true);
-                }
+                throw new Error("Hugging Face provider is disabled.");
             } else {
                 // Custom Video Provider
                 const customProviders = getCustomProviders();
